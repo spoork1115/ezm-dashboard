@@ -20,6 +20,26 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Login Security Overlay -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-card card">
+            <div class="login-card-header">
+                <i class="fa-solid fa-lock-open login-icon-neon"></i>
+                <h2>이지멤버스 BI</h2>
+                <span class="subtitle">Secure Insight Portal</span>
+                <p>본 대시보드는 사내 인원만 접근 가능합니다.<br>보안 비밀번호를 입력해 주세요.</p>
+            </div>
+            <div class="login-input-group">
+                <input type="password" id="login-password" placeholder="••••" maxlength="20" autofocus>
+                <button id="login-btn"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+            <div class="login-error" id="login-error-msg" style="display: none;">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>비밀번호가 올바르지 않습니다.</span>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">

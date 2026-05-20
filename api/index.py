@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -7,6 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import json
 import time
+import os
+import hashlib
 
 app = FastAPI(title="EasyMembers BI Dashboard API")
 
@@ -18,6 +21,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Security & Password Configurations ---
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "1115")
+SECRET_KEY = os.environ.get("SECRET_KEY", "easy-members-secret-key-1115")
+
+class LoginRequest(BaseModel):
+    password: str
+
+def verify_token(authorization: str = Header(None)):
+    expected_token = hashlib.sha256(f"{DASHBOARD_PASSWORD}:{SECRET_KEY}".encode()).hexdigest()
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = authorization.split(" ")[1]
+    if token != expected_token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 # --- Memory Cache implementation ---
 CACHE = {}
@@ -148,7 +166,15 @@ def apply_dark_theme(fig):
     )
     return fig
 
-@app.get("/api/meta")
+@app.post("/api/login")
+def login(req: LoginRequest):
+    if req.password == DASHBOARD_PASSWORD:
+        token = hashlib.sha256(f"{DASHBOARD_PASSWORD}:{SECRET_KEY}".encode()).hexdigest()
+        return {"token": token}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid password")
+
+@app.get("/api/meta", dependencies=[Depends(verify_token)])
 def get_meta():
     master, last_month = get_dashboard_data()
     return {
@@ -156,7 +182,7 @@ def get_meta():
         "brands": master['브랜드'].tolist()
     }
 
-@app.get("/api/trend")
+@app.get("/api/trend", dependencies=[Depends(verify_token)])
 def get_trend_data():
     master, last_month = get_dashboard_data()
     
@@ -220,7 +246,7 @@ def get_trend_data():
         }
     }
 
-@app.get("/api/portfolio")
+@app.get("/api/portfolio", dependencies=[Depends(verify_token)])
 def get_portfolio_data():
     master, last_month = get_dashboard_data()
     
@@ -270,7 +296,7 @@ def get_portfolio_data():
         }
     }
 
-@app.get("/api/monthly")
+@app.get("/api/monthly", dependencies=[Depends(verify_token)])
 def get_monthly_data(month: int = Query(..., ge=1, le=12)):
     master, last_month = get_dashboard_data()
     

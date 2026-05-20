@@ -20,6 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // Elements
+    const loginOverlay = document.getElementById("login-overlay");
+    const loginPasswordInput = document.getElementById("login-password");
+    const loginBtn = document.getElementById("login-btn");
+    const loginErrorMsg = document.getElementById("login-error-msg");
     const loader = document.getElementById("global-loader");
     const dashboardSubtitle = document.getElementById("dashboard-subtitle");
     const baseMonthText = document.getElementById("base-month-text");
@@ -31,11 +35,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize App
     async function init() {
+        const token = localStorage.getItem("easy_bi_token");
+        if (!token) {
+            showLoginOverlay();
+            return;
+        }
+
         showLoader();
         try {
-            const response = await fetch(`${API_BASE}/api/meta`);
-            if (!response.ok) throw new Error("Metadata loading failed");
-            
+            const response = await authFetch(`${API_BASE}/api/meta`);
             const meta = await response.json();
             currentMonth = meta.last_month;
             maxMonth = meta.last_month;
@@ -55,15 +63,52 @@ document.addEventListener("DOMContentLoaded", () => {
             dashboardSubtitle.classList.remove("loading-shimmer-text");
             dashboardSubtitle.textContent = `실시간 구글 스프레드시트 연동 BI 애널리틱스`;
 
+            hideLoginOverlay();
+
             // Initial view load
             await loadModeData();
         } catch (error) {
             console.error(error);
-            dashboardSubtitle.textContent = "API 서버 연결 오류. 잠시 후 다시 시도해 주세요.";
-            dashboardSubtitle.style.color = "#EF4444";
+            if (error.message !== "Unauthorized") {
+                dashboardSubtitle.textContent = "API 서버 연결 오류. 잠시 후 다시 시도해 주세요.";
+                dashboardSubtitle.style.color = "#EF4444";
+            }
         } finally {
             hideLoader();
         }
+    }
+
+    // Auth & Overlay Helpers
+    function showLoginOverlay() {
+        loginOverlay.classList.remove("hidden");
+        loginPasswordInput.focus();
+    }
+
+    function hideLoginOverlay() {
+        loginOverlay.classList.add("hidden");
+    }
+
+    async function authFetch(url, options = {}) {
+        const token = localStorage.getItem("easy_bi_token");
+        if (!options.headers) {
+            options.headers = {};
+        }
+        if (token) {
+            options.headers["Authorization"] = `Bearer ${token}`;
+        }
+        options.headers["Content-Type"] = "application/json";
+        
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            localStorage.removeItem("easy_bi_token");
+            dataCache = { trend: null, portfolio: null, monthly: {} };
+            showLoginOverlay();
+            throw new Error("Unauthorized");
+        }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response;
     }
 
     // Loader controls
@@ -113,8 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render 1: Trend Mode
     async function renderTrendView() {
         if (!dataCache.trend) {
-            const response = await fetch(`${API_BASE}/api/trend`);
-            if (!response.ok) throw new Error("Trend API error");
+            const response = await authFetch(`${API_BASE}/api/trend`);
             dataCache.trend = await response.json();
         }
 
@@ -141,8 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render 2: Portfolio Mode
     async function renderPortfolioView() {
         if (!dataCache.portfolio) {
-            const response = await fetch(`${API_BASE}/api/portfolio`);
-            if (!response.ok) throw new Error("Portfolio API error");
+            const response = await authFetch(`${API_BASE}/api/portfolio`);
             dataCache.portfolio = await response.json();
         }
 
@@ -157,8 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function renderMonthlyView() {
         const month = parseInt(monthSelect.value);
         if (!dataCache.monthly[month]) {
-            const response = await fetch(`${API_BASE}/api/monthly?month=${month}`);
-            if (!response.ok) throw new Error("Monthly API error");
+            const response = await authFetch(`${API_BASE}/api/monthly?month=${month}`);
             dataCache.monthly[month] = await response.json();
         }
 
@@ -277,6 +319,45 @@ document.addEventListener("DOMContentLoaded", () => {
                 Plotly.Plots.resize(document.getElementById("chart-heatmap"));
             }
         });
+    });
+
+    // Login Submit Handler
+    async function handleLogin() {
+        const password = loginPasswordInput.value.trim();
+        if (!password) return;
+
+        loginErrorMsg.style.display = "none";
+        try {
+            const response = await fetch(`${API_BASE}/api/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ password })
+            });
+
+            if (!response.ok) {
+                throw new Error("Invalid password");
+            }
+
+            const data = await response.json();
+            localStorage.setItem("easy_bi_token", data.token);
+            loginPasswordInput.value = "";
+            
+            await init();
+        } catch (err) {
+            loginErrorMsg.style.display = "flex";
+            const card = document.querySelector(".login-card");
+            card.style.animation = "none";
+            setTimeout(() => {
+                card.style.animation = "shake 0.35s ease-in-out";
+            }, 10);
+        }
+    }
+
+    loginBtn.addEventListener("click", handleLogin);
+    loginPasswordInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") handleLogin();
     });
 
     // Run Initializer
