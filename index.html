@@ -1,1 +1,275 @@
-"hello world"
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이지멤버스 BI 대시보드</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-chart-pie logo-icon"></i>
+                <div class="brand-info">
+                    <h2>이지멤버스</h2>
+                    <span>Insight Dashboard</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">분석 뷰 선택</div>
+                <button class="nav-item active" data-mode="trend">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>📈 연간/누적 종합 트렌드</span>
+                </button>
+                <button class="nav-item" data-mode="portfolio">
+                    <i class="fa-solid fa-cubes"></i>
+                    <span>🧩 브랜드 포트폴리오 분석</span>
+                </button>
+                <button class="nav-item" data-mode="monthly">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>📅 세부 월별 분석</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-controls" id="monthly-controls-container" style="display: none;">
+                <div class="nav-section-title">분석 대상 월</div>
+                <div class="select-wrapper">
+                    <select id="month-select" class="custom-select">
+                        <!-- Options populated by JS -->
+                    </select>
+                    <i class="fa-solid fa-chevron-down select-arrow"></i>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <p>EasyMembers BI v2.0</p>
+                <span>Vercel Serverless Architecture</span>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Area -->
+        <main class="main-content">
+            <!-- Top App Bar -->
+            <header class="top-bar">
+                <div class="page-title-area">
+                    <h1 id="dashboard-title">📊 이지멤버스 BI 대시보드</h1>
+                    <p id="dashboard-subtitle" class="loading-shimmer-text">데이터 로딩 중...</p>
+                </div>
+                <div class="meta-badge" id="base-month-badge">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="base-month-text">기준월: 로딩 중...</span>
+                </div>
+            </header>
+            
+            <!-- Global Loader Overlay -->
+            <div class="loader-overlay" id="global-loader">
+                <div class="spinner-container">
+                    <div class="spinner"></div>
+                    <p>데이터 분석 중...</p>
+                </div>
+            </div>
+
+            <!-- Dashboard Viewports -->
+            <div class="view-viewport" id="viewport-trend">
+                <!-- KPI Section -->
+                <div class="kpi-grid">
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">24년 총 매출</span>
+                            <div class="kpi-icon-wrapper blue"><i class="fa-solid fa-wallet"></i></div>
+                        </div>
+                        <div class="kpi-value" id="tot-24">-</div>
+                        <div class="kpi-trend">
+                            <span class="trend-label">전년도 전체 실적</span>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">25년 총 매출</span>
+                            <div class="kpi-icon-wrapper indigo"><i class="fa-solid fa-chart-simple"></i></div>
+                        </div>
+                        <div class="kpi-value" id="tot-25">-</div>
+                        <div class="kpi-trend" id="yoy-25-container">
+                            <span class="trend-badge" id="yoy-25">-</span>
+                            <span class="trend-label">YoY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="kpi-ytd-title">26년 누적 실적</span>
+                            <div class="kpi-icon-wrapper green"><i class="fa-solid fa-award"></i></div>
+                        </div>
+                        <div class="kpi-value" id="tot-26-ytd">-</div>
+                        <div class="kpi-trend" id="yoy-26-ytd-container">
+                            <span class="trend-badge" id="yoy-26-ytd">-</span>
+                            <span class="trend-label">동기비</span>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">26년 예상 매출 (연말)</span>
+                            <div class="kpi-icon-wrapper purple"><i class="fa-solid fa-hourglass-half"></i></div>
+                        </div>
+                        <div class="kpi-value" id="tot-26-fcst">-</div>
+                        <div class="kpi-trend" id="yoy-26-fcst-container">
+                            <span class="trend-badge" id="yoy-26-fcst">-</span>
+                            <span class="trend-label">예상 증감</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid-2">
+                    <div class="chart-container card">
+                        <div id="chart-waterfall" class="plotly-chart"></div>
+                    </div>
+                    <div class="chart-container card">
+                        <div id="chart-line" class="plotly-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view-viewport" id="viewport-portfolio" style="display: none;">
+                <!-- Portfolio Interactive Tabs -->
+                <div class="tab-controls card">
+                    <button class="tab-btn active" data-tab="scatter">🎯 포지셔닝 맵 (성장성 vs 규모)</button>
+                    <button class="tab-btn" data-tab="heatmap">🔥 브랜드별 계절성 히트맵</button>
+                </div>
+                
+                <div class="tab-content" id="tab-scatter">
+                    <div class="chart-container card large-chart">
+                        <div class="chart-desc">
+                            <h3>매출 규모와 성장성 기반 전략 매트릭스 (BCG Matrix 응용)</h3>
+                            <p>우상단(Star): 규모와 성장률이 모두 높은 핵심 브랜드 / 우하단(Cash Cow): 규모는 크지만 성장세가 둔화된 브랜드</p>
+                        </div>
+                        <div id="chart-scatter" class="plotly-chart"></div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="tab-heatmap" style="display: none;">
+                    <div class="chart-container card large-chart">
+                        <div class="chart-desc">
+                            <h3>TOP 15 브랜드 월별 매출 트렌드 히트맵</h3>
+                            <p>각 브랜드의 매출이 집중되는 '계절성'을 파악하여 프로모션 시기를 조율할 수 있습니다. (25년 1년치 데이터 기준)</p>
+                        </div>
+                        <div id="chart-heatmap" class="plotly-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view-viewport" id="viewport-monthly" style="display: none;">
+                <!-- Monthly KPI Section -->
+                <div class="kpi-grid-3">
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="m-kpi-25-title">25년 0월 매출</span>
+                            <div class="kpi-icon-wrapper blue"><i class="fa-solid fa-calendar-check"></i></div>
+                        </div>
+                        <div class="kpi-value" id="m-sales-25">-</div>
+                    </div>
+                    
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="m-kpi-26-title">26년 0월 매출</span>
+                            <div class="kpi-icon-wrapper indigo"><i class="fa-solid fa-chart-line"></i></div>
+                        </div>
+                        <div class="kpi-value" id="m-sales-26">-</div>
+                        <div class="kpi-trend" id="m-yoy-container">
+                            <span class="trend-badge" id="m-yoy">-</span>
+                            <span class="trend-label">YoY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">해당 월 1위 브랜드</span>
+                            <div class="kpi-icon-wrapper green"><i class="fa-solid fa-trophy"></i></div>
+                        </div>
+                        <div class="kpi-value brand-value-text" id="m-top-brand">-</div>
+                    </div>
+                </div>
+
+                <!-- Monthly Pareto Chart -->
+                <div class="chart-container card single-chart">
+                    <div class="chart-desc">
+                        <h3>📌 매출 집중도 분석 (Pareto Chart)</h3>
+                        <p>상위 브랜드들이 전체 실적의 몇 %를 견인하는지 확인하는 포트폴리오 의존도 지표입니다. (상위 20개 브랜드)</p>
+                    </div>
+                    <div id="chart-pareto" class="plotly-chart"></div>
+                </div>
+
+                <!-- Tables Grid -->
+                <div class="tables-grid">
+                    <div class="table-container card">
+                        <div class="table-header up">
+                            <i class="fa-solid fa-circle-arrow-up"></i>
+                            <h3>🔺 전년비 최대 증가액 TOP 10</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="table-up">
+                                <thead>
+                                    <tr>
+                                        <th>브랜드</th>
+                                        <th class="num-col">26년 매출</th>
+                                        <th class="num-col">25년 매출</th>
+                                        <th class="num-col">증감액</th>
+                                        <th class="num-col">증감률</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container card">
+                        <div class="table-header down">
+                            <i class="fa-solid fa-circle-arrow-down"></i>
+                            <h3>🔻 전년비 최대 감소액 TOP 10</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="table-down">
+                                <thead>
+                                    <tr>
+                                        <th>브랜드</th>
+                                        <th class="num-col">26년 매출</th>
+                                        <th class="num-col">25년 매출</th>
+                                        <th class="num-col">증감액</th>
+                                        <th class="num-col">증감률</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Script Integration -->
+    <script src="app.js"></script>
+</body>
+</html>
