@@ -1,0 +1,275 @@
+# pm2 start "streamlit run ezm.py --server.port 8501" --name my-streamlit-app
+# streamlit run ezm.py --server.port 8501 --server.address 0.0.0.0 --server.enableCORS false --server.enableXsrfProtection false
+# nohup python -m streamlit run ezm.py --server.port 8501 &
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+st.set_page_config(page_title="이지멤버스 인사이트 대시보드", layout="wide")
+
+# --- 1. 데이터 로드 및 전처리 ---
+@st.cache_data
+def load_and_clean_data():
+    sheet_id = "1ZGwQoIfAM7TpgtyREW7EioOzHHJVqMtp1yz-ttdDS3Q"
+    url_24 = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=2118374135"
+    url_25 = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=1858969876"
+    url_26 = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=527577312"
+    
+    df_24 = pd.read_csv(url_24)
+    df_25 = pd.read_csv(url_25)
+    df_26 = pd.read_csv(url_26)
+    
+    for df in [df_24, df_25, df_26]:
+        df.columns = [str(c).strip() for c in df.columns]
+        
+    if '이지멤버스 브랜드' in df_24.columns: 
+        df_24.rename(columns={'이지멤버스 브랜드': '브랜드'}, inplace=True)
+    
+    return df_24, df_25, df_26
+
+def standardize_columns(df, year_prefix):
+    mapping = {}
+    for c in df.columns:
+        cs = str(c).strip()
+        if cs.startswith(f"{year_prefix}."):
+            parts = cs.split('.')
+            m_str = parts[1].strip()
+            m_num = 10 if m_str == '1' else int(m_str)
+            mapping[c] = f"{year_prefix}.{m_num:02d}"
+            
+    brand_cols = [c for c in df.columns if '브랜드' in c]
+    if not brand_cols: return pd.DataFrame(columns=['브랜드'])
+    brand_col = brand_cols[0]
+    
+    df_sub = df[[brand_col] + list(mapping.keys())].copy()
+    df_sub.rename(columns={brand_col: '브랜드'}, inplace=True)
+    df_sub.rename(columns=mapping, inplace=True)
+    return df_sub
+
+def clean_currency(x):
+    if pd.isna(x): return 0
+    if isinstance(x, str): x = x.replace(',', '')
+    return pd.to_numeric(x, errors='coerce')
+
+# --- 2. 마스터 데이터 병합 ---
+try:
+    df_24, df_25, df_26 = load_and_clean_data()
+    
+    d24 = standardize_columns(df_24, "24")
+    d25 = standardize_columns(df_25, "25")
+    d26 = standardize_columns(df_26, "26")
+    
+    all_brands = pd.concat([d24['브랜드'], d25['브랜드'], d26['브랜드']]).dropna().unique()
+    all_brands = [b for b in all_brands if b != '합계']
+    master = pd.DataFrame({'브랜드': all_brands})
+    
+    master = pd.merge(master, d24, on='브랜드', how='left')
+    master = pd.merge(master, d25, on='브랜드', how='left')
+    master = pd.merge(master, d26, on='브랜드', how='left')
+    
+    for c in master.columns:
+        if c != '브랜드':
+            master[c] = master[c].apply(clean_currency).fillna(0)
+
+    c24 = [f"24.{m:02d}" for m in range(1, 13)]
+    c25 = [f"25.{m:02d}" for m in range(1, 13)]
+    c26 = [f"26.{m:02d}" for m in range(1, 13)]
+    
+    for c in c24 + c25 + c26:
+        if c not in master.columns: master[c] = 0
+
+    master['24년_실적'] = master[c24].sum(axis=1)
+    master['25년_실적'] = master[c25].sum(axis=1)
+    
+    active_months_26 = [m for m in range(1, 13) if master[f"26.{m:02d}"].sum() > 0]
+    last_month = max(active_months_26) if active_months_26 else 0
+    
+    ytd_25_cols = [f"25.{m:02d}" for m in range(1, last_month + 1)]
+    ytd_26_cols = [f"26.{m:02d}" for m in range(1, last_month + 1)]
+    
+    master['25년_YTD'] = master[ytd_25_cols].sum(axis=1) if ytd_25_cols else 0
+    master['26년_YTD'] = master[ytd_26_cols].sum(axis=1) if ytd_26_cols else 0
+
+    def forecast_2026(row):
+        if row['26년_YTD'] == 0: return 0
+        if row['25년_YTD'] > 0 and row['25년_실적'] > 0:
+            return row['25년_실적'] * (row['26년_YTD'] / row['25년_YTD'])
+        elif last_month > 0:
+            return (row['26년_YTD'] / last_month) * 12
+        return 0
+
+    master['26년_예상'] = master.apply(forecast_2026, axis=1)
+
+    # --- 사이드바 및 레이아웃 ---
+    st.sidebar.markdown("### ⚙️ 분석 설정")
+    analysis_mode = st.sidebar.radio("분석 뷰 선택", [
+        "📈 연간/누적 종합 트렌드", 
+        "🧩 브랜드 포트폴리오 분석 (신규)",
+        "📅 세부 월별 분석"
+    ])
+
+    st.title("📊 이지멤버스 BI 대시보드")
+    if last_month > 0:
+        st.caption(f"기준월: 2026년 {last_month}월 누적 데이터(YTD) 반영")
+
+    # ==========================================
+    # 모드 1: 연간 종합 트렌드 & 폭포수 차트
+    # ==========================================
+    if analysis_mode == "📈 연간/누적 종합 트렌드":
+        tot_24 = master['24년_실적'].sum()
+        tot_25 = master['25년_실적'].sum()
+        tot_26_ytd = master['26년_YTD'].sum()
+        tot_25_ytd = master['25년_YTD'].sum()
+        tot_26_fcst = master['26년_예상'].sum()
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("24년 총 매출", f"{tot_24/1e8:,.1f}억 원")
+        c2.metric("25년 총 매출", f"{tot_25/1e8:,.1f}억 원", f"{(tot_25/tot_24*100-100 if tot_24 else 0):.1f}% (YoY)")
+        c3.metric(f"26년 누적({last_month}개월)", f"{tot_26_ytd/1e8:,.1f}억 원", f"동기비 {(tot_26_ytd/tot_25_ytd*100-100 if tot_25_ytd else 0):.1f}%")
+        c4.metric("26년 예상 매출(연말)", f"{tot_26_fcst/1e8:,.1f}억 원", f"예상 증감 {(tot_26_fcst/tot_25*100-100 if tot_25 else 0):.1f}%")
+        st.markdown("---")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("📌 26년 누적 매출 증감 원인 (Waterfall)")
+            # 폭포수 차트 로직
+            inc_brands = master[master['26년_YTD'] > master['25년_YTD']]
+            dec_brands = master[master['26년_YTD'] < master['25년_YTD']]
+            inc_sum = inc_brands['26년_YTD'].sum() - inc_brands['25년_YTD'].sum()
+            dec_sum = dec_brands['26년_YTD'].sum() - dec_brands['25년_YTD'].sum()
+            
+            fig_wf = go.Figure(go.Waterfall(
+                orientation="v",
+                measure=["absolute", "relative", "relative", "total"],
+                x=["25년 동기간 누적", "성장 브랜드 기여", "하락 브랜드 손실", f"26년 {last_month}월 누적"],
+                y=[tot_25_ytd, inc_sum, dec_sum, tot_26_ytd],
+                text=[f"{v/1e8:,.1f}억" for v in [tot_25_ytd, inc_sum, dec_sum, tot_26_ytd]],
+                textposition="outside",
+                connector={"line":{"color":"rgb(63, 63, 63)"}},
+                increasing={"marker":{"color":"#424874"}},
+                decreasing={"marker":{"color":"#DCD6F7"}},
+                totals={"marker":{"color":"#A6B1E1"}}
+            ))
+            st.plotly_chart(fig_wf, use_container_width=True)
+
+        with col2:
+            st.subheader("📌 3개년 월별 누적 실적(YTD) 비교")
+            if last_month > 0:
+                ytd_trend = pd.DataFrame({
+                    '월': [f"{m}월" for m in range(1, 13)],
+                    '24년': [master[f"24.{m:02d}"].sum() for m in range(1, 13)],
+                    '25년': [master[f"25.{m:02d}"].sum() for m in range(1, 13)],
+                    '26년': [master[f"26.{m:02d}"].sum() if m <= last_month else None for m in range(1, 13)]
+                })
+                fig_line = go.Figure()
+                fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['24년'].cumsum(), name='24년 누적', line=dict(dash='dot', color='gray')))
+                fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['25년'].cumsum(), name='25년 누적', line=dict(color='#A6B1E1')))
+                fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['26년'].cumsum(), name='26년 누적', mode='lines+markers', line=dict(color='#424874', width=3)))
+                st.plotly_chart(fig_line, use_container_width=True)
+
+    # ==========================================
+    # 모드 2: 브랜드 포트폴리오 분석 (새로운 분석 기법 추가)
+    # ==========================================
+    elif analysis_mode == "🧩 브랜드 포트폴리오 분석 (신규)":
+        st.markdown("### 🔍 제휴 브랜드 포지셔닝 및 건전성 진단")
+        
+        tab_scat, tab_heat = st.tabs(["🎯 포지셔닝 맵 (성장성 vs 규모)", "🔥 브랜드별 계절성 히트맵"])
+        
+        with tab_scat:
+            st.subheader("매출 규모와 성장성 기반 전략 매트릭스 (BCG Matrix 응용)")
+            st.caption("우상단(Star): 규모와 성장률이 모두 높은 핵심 브랜드 / 우하단(Cash Cow): 규모는 크지만 성장세가 둔화된 브랜드")
+            
+            df_scatter = master[(master['26년_YTD'] > 0) | (master['25년_YTD'] > 0)].copy()
+            df_scatter['증감률(%)'] = np.where(df_scatter['25년_YTD']>0, (df_scatter['26년_YTD']-df_scatter['25년_YTD'])/df_scatter['25년_YTD']*100, 0)
+            df_scatter['증감률(표시)'] = df_scatter['증감률(%)'].clip(lower=-50, upper=150) # 극단값 보정
+            
+            # 매출 상위 40개 브랜드만 표시 (시각적 깔끔함 유지)
+            df_scatter_top = df_scatter.sort_values('26년_YTD', ascending=False).head(40)
+            
+            fig_scat = px.scatter(
+                df_scatter_top, x="26년_YTD", y="증감률(표시)", text="브랜드",
+                size="26년_YTD", color="증감률(표시)", color_continuous_scale="RdBu",
+                hover_data={"26년_YTD":':,.0f', "증감률(%)":':.1f%'},
+                labels={"26년_YTD": "26년 누적 매출액", "증감률(표시)": "전년비 성장률 (%)"}
+            )
+            fig_scat.update_traces(textposition='top center')
+            fig_scat.add_hline(y=0, line_dash="dash", line_color="red")
+            avg_rev = df_scatter_top['26년_YTD'].mean()
+            fig_scat.add_vline(x=avg_rev, line_dash="dash", line_color="gray")
+            st.plotly_chart(fig_scat, use_container_width=True, height=600)
+
+        with tab_heat:
+            st.subheader("TOP 15 브랜드 월별 매출 트렌드 히트맵")
+            st.caption("각 브랜드의 매출이 집중되는 '계절성'을 파악하여 프로모션 시기를 조율할 수 있습니다. (25년 1년치 데이터 기준)")
+            
+            top_15_brands = master.sort_values('25년_실적', ascending=False)['브랜드'].head(15).tolist()
+            df_hm = master[master['브랜드'].isin(top_15_brands)].set_index('브랜드')[c25]
+            
+            fig_hm = px.imshow(
+                df_hm, 
+                labels=dict(x="월", y="브랜드", color="매출액"), 
+                x=[f"{m}월" for m in range(1, 13)],
+                color_continuous_scale="Blues",
+                aspect="auto"
+            )
+            st.plotly_chart(fig_hm, use_container_width=True)
+
+    # ==========================================
+    # 모드 3: 세부 월별 분석 (파레토 차트 포함)
+    # ==========================================
+    elif analysis_mode == "📅 세부 월별 분석":
+        tgt_m = st.sidebar.selectbox("분석 대상 월 선택", range(1, 13), index=(last_month-1 if last_month>0 else 0), format_func=lambda x: f"{x}월")
+        m25_col, m26_col = f"25.{tgt_m:02d}", f"26.{tgt_m:02d}"
+
+        val_25, val_26 = master[m25_col].sum(), master[m26_col].sum()
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric(f"25년 {tgt_m}월 매출", f"{val_25/1e8:,.1f}억 원")
+        c2.metric(f"26년 {tgt_m}월 매출", f"{val_26/1e8:,.1f}억 원", f"{(val_26/val_25*100-100 if val_25 else 0):.1f}% (YoY)")
+        c3.metric("해당 월 1위 브랜드", master.loc[master[m26_col].idxmax()]['브랜드'] if val_26 > 0 else "데이터 없음")
+        st.markdown("---")
+
+        if val_26 > 0:
+            st.subheader(f"📌 {tgt_m}월 매출 집중도 분석 (Pareto Chart)")
+            st.caption("상위 브랜드들이 전체 실적의 몇 %를 견인하는지 확인하는 포트폴리오 의존도 지표입니다.")
+            
+            df_m = master[['브랜드', m26_col]].copy()
+            df_m = df_m[df_m[m26_col] > 0].sort_values(m26_col, ascending=False)
+            df_m['누적비율(%)'] = (df_m[m26_col].cumsum() / df_m[m26_col].sum()) * 100
+            
+            # 상위 20개만 시각화
+            df_pareto = df_m.head(20)
+            
+            fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_pareto.add_trace(go.Bar(x=df_pareto['브랜드'], y=df_pareto[m26_col], name="매출액", marker_color='#A6B1E1'), secondary_y=False)
+            fig_pareto.add_trace(go.Scatter(x=df_pareto['브랜드'], y=df_pareto['누적비율(%)'], name="누적 점유율(%)", mode='lines+markers', line=dict(color='#424874', width=3)), secondary_y=True)
+            
+            fig_pareto.update_yaxes(title_text="매출액", secondary_y=False)
+            fig_pareto.update_yaxes(title_text="누적 점유율 (%)", range=[0, 105], secondary_y=True)
+            st.plotly_chart(fig_pareto, use_container_width=True)
+
+        st.subheader(f"📊 {tgt_m}월 세부 증감 랭킹")
+        m_data = master[['브랜드', m26_col, m25_col]].copy()
+        m_data['증감액'] = m_data[m26_col] - m_data[m25_col]
+        m_data['증감률(%)'] = np.where(m_data[m25_col]>0, (m_data['증감액']/m_data[m25_col]*100).round(1), 0)
+        m_data = m_data[(m_data[m26_col] > 0) | (m_data[m25_col] > 0)]
+
+        def fmt(df):
+            d = df.copy()
+            for c in [m26_col, m25_col, '증감액']: d[c] = d[c].apply(lambda x: f"{x:,.0f}")
+            return d
+
+        c_up, c_down = st.columns(2)
+        with c_up:
+            st.markdown("**🔺 최대 증가액 TOP 10**")
+            st.dataframe(fmt(m_data.sort_values('증감액', ascending=False).head(10)), hide_index=True, use_container_width=True)
+        with c_down:
+            st.markdown("**🔻 최대 감소액 TOP 10**")
+            st.dataframe(fmt(m_data.sort_values('증감액', ascending=True).head(10)), hide_index=True, use_container_width=True)
+
+except Exception as e:
+    st.error(f"오류 발생: {e}")
