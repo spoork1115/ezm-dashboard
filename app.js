@@ -18,6 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
         portfolio: null,
         monthly: {}
     };
+    let monthlySortKey = "sales_26"; // '브랜드' | 'sales_26' | 'sales_25' | 'diff' | 'pct'
+    let monthlySortOrder = "desc";   // 'asc' | 'desc'
 
     // Elements
     const loginOverlay = document.getElementById("login-overlay");
@@ -227,10 +229,58 @@ document.addEventListener("DOMContentLoaded", () => {
             chartParetoDiv.style.display = "none";
         }
 
+        // 신규 차트 3종 (Area, BCG Scatter, Category Bar)
+        const areaChartDiv = document.getElementById("chart-monthly-area");
+        if (data.charts && data.charts.area) {
+            areaChartDiv.parentElement.style.display = "flex";
+            Plotly.newPlot("chart-monthly-area", data.charts.area.data, data.charts.area.layout, {responsive: true, displayModeBar: false});
+        } else {
+            areaChartDiv.parentElement.style.display = "none";
+        }
+
+        const bcgChartDiv = document.getElementById("chart-monthly-bcg");
+        if (data.charts && data.charts.bcg) {
+            bcgChartDiv.parentElement.style.display = "flex";
+            Plotly.newPlot("chart-monthly-bcg", data.charts.bcg.data, data.charts.bcg.layout, {responsive: true, displayModeBar: false});
+        } else {
+            bcgChartDiv.parentElement.style.display = "none";
+        }
+
+        const categoryBarChartDiv = document.getElementById("chart-monthly-category-bar");
+        if (data.charts && data.charts.category_bar) {
+            categoryBarChartDiv.parentElement.style.display = "flex";
+            Plotly.newPlot("chart-monthly-category-bar", data.charts.category_bar.data, data.charts.category_bar.layout, {responsive: true, displayModeBar: false});
+        } else {
+            categoryBarChartDiv.parentElement.style.display = "none";
+        }
+
         // Tables populating & Dynamic Header updates
-        document.getElementById("th-sales-26").textContent = `26년 ${month}월`;
-        document.getElementById("th-sales-25").textContent = `25년 ${month}월`;
-        populateAllBrandsTable(data.tables.all_brands);
+        const thSales26 = document.getElementById("th-sales-26");
+        const thSales25 = document.getElementById("th-sales-25");
+        if (thSales26) thSales26.querySelector(".th-text").textContent = `26년 ${month}월`;
+        if (thSales25) thSales25.querySelector(".th-text").textContent = `25년 ${month}월`;
+
+        // 정렬
+        let sortedBrands = [...data.tables.all_brands];
+        const key = monthlySortKey;
+        const order = monthlySortOrder;
+
+        sortedBrands.sort((a, b) => {
+            let valA = a[key];
+            let valB = b[key];
+
+            if (key === "브랜드") {
+                valA = a["브랜드"];
+                valB = b["브랜드"];
+                return order === "asc" ? valA.localeCompare(valB, "ko") : valB.localeCompare(valA, "ko");
+            }
+
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+            return order === "asc" ? valA - valB : valB - valA;
+        });
+
+        populateAllBrandsTable(sortedBrands);
     }
 
     async function loadAndRenderBrandTrend(brandName) {
@@ -464,6 +514,40 @@ document.addEventListener("DOMContentLoaded", () => {
     loginBtn.addEventListener("click", handleLogin);
     loginPasswordInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter") handleLogin();
+    });
+
+    // 테이블 헤더 클릭 이벤트 리스너 등록
+    const tableHeaderThs = document.querySelectorAll("#table-all-brands thead th");
+    tableHeaderThs.forEach(th => {
+        th.addEventListener("click", () => {
+            const key = th.dataset.key;
+            if (!key) return;
+
+            if (monthlySortKey === key) {
+                monthlySortOrder = monthlySortOrder === "asc" ? "desc" : "asc";
+            } else {
+                monthlySortKey = key;
+                monthlySortOrder = "desc";
+            }
+
+            // 헤더 아이콘 갱신
+            tableHeaderThs.forEach(t => {
+                const icon = t.querySelector("i");
+                if (icon) {
+                    const tKey = t.dataset.key;
+                    if (tKey === monthlySortKey) {
+                        icon.className = monthlySortOrder === "asc" ? "fa-solid fa-sort-up" : "fa-solid fa-sort-down";
+                    } else {
+                        icon.className = "fa-solid fa-sort";
+                    }
+                }
+            });
+
+            // 테이블 및 뷰 다시 그리기
+            if (currentMode === "monthly") {
+                renderMonthlyView();
+            }
+        });
     });
 
     // Run Initializer

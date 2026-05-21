@@ -11,6 +11,25 @@ from plotly.subplots import make_subplots
 
 st.set_page_config(page_title="이지멤버스 인사이트 대시보드", layout="wide")
 
+# --- Brand Categories Configuration ---
+BRAND_CATEGORY_MAP = {
+    'GS25': '유통/편의점',
+    'GS더프레시': '유통/편의점',
+    '랄라블라': '뷰티/케어',
+    '예스24': '도서/교육',
+    '교보문고': '도서/교육',
+    '고피자': '식음료(F&B)',
+    '이지웨이': '식음료(F&B)',
+    '크리스탈 제이드': '식음료(F&B)',
+    '베베쿡': '도서/교육',
+    '히어로플레이파크': '기타 서비스',
+    '파크 하얏트 서울': '기타 서비스',
+    '슬로베이커리': '식음료(F&B)',
+    '뉴발란스': '유통/편의점',
+    '멤버샵': '기타 서비스',
+    '제휴몰A': '기타 서비스'
+}
+
 # --- 보안 비밀번호 인증 기능 ---
 def check_password():
     """사용자가 올바른 비밀번호를 입력했는지 확인하고 로그인 화면을 렌더링합니다."""
@@ -362,6 +381,141 @@ try:
             fig_pareto.update_yaxes(title_text="매출액", secondary_y=False)
             fig_pareto.update_yaxes(title_text="누적 점유율 (%)", range=[0, 105], secondary_y=True)
             st.plotly_chart(fig_pareto, use_container_width=True)
+
+        # --- [신규 추가] 세부 월별 심층 분석 도표 ---
+        if last_month > 0:
+            st.markdown("---")
+            st.subheader(f"🔍 {tgt_m}월 세부 심층 분석 도표")
+            
+            # 차트 1 & 차트 2 가로 배치
+            col_c1, col_c2 = st.columns(2)
+            
+            with col_c1:
+                # 1. 월별 누적 매출 추이 (Area Chart)
+                top_brands = ['GS25', '예스24', 'GS더프레시', '교보문고']
+                area_data = []
+                for m in range(1, last_month + 1):
+                    col = f"26.{m:02d}"
+                    m_label = f"{m}월"
+                    
+                    for brand in top_brands:
+                        brand_row = master[master['브랜드'] == brand]
+                        val = float(brand_row[col].iloc[0]) / 1e6 if not brand_row.empty else 0
+                        area_data.append({'월': m_label, '브랜드': brand, '매출액': val})
+                        
+                    others_row = master[~master['브랜드'].isin(top_brands)]
+                    others_val = float(others_row[col].sum()) / 1e6
+                    area_data.append({'월': m_label, '브랜드': '기타 브랜드', '매출액': others_val})
+                    
+                df_area = pd.DataFrame(area_data)
+                fig_monthly_area = px.area(
+                    df_area, x="월", y="매출액", color="브랜드",
+                    color_discrete_map={
+                        'GS25': '#FF4D4D', '예스24': '#A6B1E1', 'GS더프레시': '#424874', 
+                        '교보문고': '#DCD6F7', '기타 브랜드': '#8E94F2'
+                    },
+                    labels={"매출액": "매출액 (백만원)"}
+                )
+                fig_monthly_area.update_layout(
+                    title={"text": f"26년 1월~{last_month}월 브랜드별 누적 매출 추이"},
+                    hovermode="x unified",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#E5E7EB"),
+                    xaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF")),
+                    yaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF"))
+                )
+                st.plotly_chart(fig_monthly_area, use_container_width=True)
+                
+            with col_c2:
+                # 2. 성장률-매출 비중 매트릭스 (BCG Scatter Chart)
+                if val_26 > 0:
+                    curr_col = f"26.{tgt_m:02d}"
+                    prev_col = "25.12" if tgt_m == 1 else f"26.{(tgt_m-1):02d}"
+                    
+                    df_scatter = master[['브랜드', curr_col, prev_col]].copy()
+                    df_scatter['category'] = df_scatter['브랜드'].map(lambda b: BRAND_CATEGORY_MAP.get(b, '기타 서비스'))
+                    
+                    total_curr = df_scatter[curr_col].sum()
+                    df_scatter['share'] = np.where(total_curr > 0, (df_scatter[curr_col] / total_curr) * 100, 0)
+                    df_scatter['growth'] = np.where(
+                        df_scatter[prev_col] > 0,
+                        ((df_scatter[curr_col] - df_scatter[prev_col]) / df_scatter[prev_col]) * 100,
+                        0
+                    )
+                    
+                    df_scatter = df_scatter[df_scatter[curr_col] > 0].copy()
+                    df_scatter['매출액(백만원)'] = df_scatter[curr_col] / 1e6
+                    df_scatter['성장률(%)'] = df_scatter['growth'].clip(-50, 150)
+                    
+                    fig_monthly_bcg = px.scatter(
+                        df_scatter, x="share", y="성장률(%)", text="브랜드",
+                        size="매출액(백만원)", color="category",
+                        color_discrete_map={
+                            '유통/편의점': '#FF4D4D', '도서/교육': '#A6B1E1', 
+                            '식음료(F&B)': '#DCD6F7', '뷰티/케어': '#8E94F2', 
+                            '기타 서비스': '#6B7280'
+                        },
+                        labels={"share": "매출 비중 (%)", "성장률(%)": "전월비 성장률 (%)"}
+                    )
+                    fig_monthly_bcg.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='rgba(255, 255, 255, 0.5)')))
+                    fig_monthly_bcg.add_hline(y=0, line_dash="dash", line_color="#EF4444")
+                    
+                    avg_share = float(df_scatter['share'].mean()) if not df_scatter.empty else 0
+                    fig_monthly_bcg.add_vline(x=avg_share, line_dash="dash", line_color="#9CA3AF")
+                    fig_monthly_bcg.update_layout(
+                        title={"text": f"{tgt_m}월 성장률-매출 비중 매트릭스 (BCG Matrix)"},
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#E5E7EB"),
+                        xaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF")),
+                        yaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF"))
+                    )
+                    st.plotly_chart(fig_monthly_bcg, use_container_width=True)
+                else:
+                    st.info("성장률 분석을 위한 당월 매출 데이터가 존재하지 않습니다.")
+                    
+            # 3. 카테고리별 100% 기준 누적 막대 차트 (Bar Chart)
+            cat_data = []
+            for m in range(1, last_month + 1):
+                col = f"26.{m:02d}"
+                m_label = f"{m}월"
+                
+                m_df = master[['브랜드', col]].copy()
+                m_df['category'] = m_df['브랜드'].map(lambda b: BRAND_CATEGORY_MAP.get(b, '기타 서비스'))
+                cat_rev = m_df.groupby('category')[col].sum().reset_index()
+                
+                total_m = cat_rev[col].sum()
+                for _, row in cat_rev.iterrows():
+                    share = (row[col] / total_m * 100) if total_m > 0 else 0
+                    cat_data.append({
+                        '월': m_label,
+                        '카테고리': row['category'],
+                        '비중(%)': share,
+                        '매출액': row[col] / 1e6
+                    })
+                    
+            df_cat = pd.DataFrame(cat_data)
+            fig_monthly_cat = px.bar(
+                df_cat, x="월", y="비중(%)", color="카테고리",
+                color_discrete_map={
+                    '유통/편의점': '#FF4D4D', '도서/교육': '#A6B1E1', 
+                    '식음료(F&B)': '#DCD6F7', '뷰티/케어': '#8E94F2', 
+                    '기타 서비스': '#6B7280'
+                },
+                labels={"비중(%)": "매출 비중 (%)"},
+                barmode="relative"
+            )
+            fig_monthly_cat.update_layout(
+                title={"text": f"26년 1월~{last_month}월 카테고리별 매출 비중 (100% Stacked Bar)"},
+                yaxis=dict(range=[0, 100]),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#E5E7EB"),
+                xaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF")),
+                yaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF"))
+            )
+            st.plotly_chart(fig_monthly_cat, use_container_width=True)
 
         # --- 브랜드별 상세 매출 추이 그래프 (표의 윗부분) ---
         if 'selected_brand' not in st.session_state:

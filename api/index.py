@@ -37,6 +37,25 @@ def verify_token(authorization: str = Header(None)):
     if token != expected_token:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+# --- Brand Categories Configuration ---
+BRAND_CATEGORY_MAP = {
+    'GS25': '유통/편의점',
+    'GS더프레시': '유통/편의점',
+    '랄라블라': '뷰티/케어',
+    '예스24': '도서/교육',
+    '교보문고': '도서/교육',
+    '고피자': '식음료(F&B)',
+    '이지웨이': '식음료(F&B)',
+    '크리스탈 제이드': '식음료(F&B)',
+    '베베쿡': '도서/교육',
+    '히어로플레이파크': '기타 서비스',
+    '파크 하얏트 서울': '기타 서비스',
+    '슬로베이커리': '식음료(F&B)',
+    '뉴발란스': '유통/편의점',
+    '멤버샵': '기타 서비스',
+    '제휴몰A': '기타 서비스'
+}
+
 # --- Memory Cache implementation ---
 CACHE = {}
 CACHE_TTL = 600  # 10 minutes cache TTL
@@ -327,6 +346,120 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
         fig_pareto.update_layout(title={"text": f"{month}월 매출 집중도 분석 (Pareto Chart)"})
         fig_pareto = apply_dark_theme(fig_pareto)
 
+    # --- 추가 차트 1: 월별 누적 매출 추이 차트 (Area Chart) ---
+    fig_area = None
+    if last_month > 0:
+        top_brands = ['GS25', '예스24', 'GS더프레시', '교보문고']
+        area_data = []
+        for m in range(1, last_month + 1):
+            col = f"26.{m:02d}"
+            m_label = f"{m}월"
+            
+            # 각 탑 브랜드 매출
+            for brand in top_brands:
+                brand_row = master[master['브랜드'] == brand]
+                val = float(brand_row[col].iloc[0]) / 1e6 if not brand_row.empty else 0
+                area_data.append({'월': m_label, '브랜드': brand, '매출액': val})
+                
+            # 기타 브랜드 합산
+            others_row = master[~master['브랜드'].isin(top_brands)]
+            others_val = float(others_row[col].sum()) / 1e6
+            area_data.append({'월': m_label, '브랜드': '기타 브랜드', '매출액': others_val})
+            
+        df_area = pd.DataFrame(area_data)
+        fig_area = px.area(
+            df_area, x="월", y="매출액", color="브랜드",
+            color_discrete_map={
+                'GS25': '#FF4D4D', '예스24': '#A6B1E1', 'GS더프레시': '#424874', 
+                '교보문고': '#DCD6F7', '기타 브랜드': '#8E94F2'
+            },
+            labels={"매출액": "매출액 (백만원)"}
+        )
+        fig_area.update_layout(
+            title={"text": f"26년 1월~{last_month}월 브랜드별 누적 매출 추이"},
+            hovermode="x unified"
+        )
+        fig_area = apply_dark_theme(fig_area)
+
+    # --- 추가 차트 2: 성장률-매출 비중 매트릭스 (BCG Scatter Chart) ---
+    fig_bcg = None
+    if val_26 > 0:
+        curr_col = f"26.{month:02d}"
+        prev_col = "25.12" if month == 1 else f"26.{(month-1):02d}"
+        
+        df_scatter = master[['브랜드', curr_col, prev_col]].copy()
+        df_scatter['category'] = df_scatter['브랜드'].map(lambda b: BRAND_CATEGORY_MAP.get(b, '기타 서비스'))
+        
+        total_curr = df_scatter[curr_col].sum()
+        df_scatter['share'] = np.where(total_curr > 0, (df_scatter[curr_col] / total_curr) * 100, 0)
+        df_scatter['growth'] = np.where(
+            df_scatter[prev_col] > 0,
+            ((df_scatter[curr_col] - df_scatter[prev_col]) / df_scatter[prev_col]) * 100,
+            0
+        )
+        
+        # 매출액이 있는 브랜드만 노출
+        df_scatter = df_scatter[df_scatter[curr_col] > 0].copy()
+        df_scatter['매출액(백만원)'] = df_scatter[curr_col] / 1e6
+        df_scatter['성장률(%)'] = df_scatter['growth'].clip(-50, 150)
+        
+        fig_bcg = px.scatter(
+            df_scatter, x="share", y="성장률(%)", text="브랜드",
+            size="매출액(백만원)", color="category",
+            color_discrete_map={
+                '유통/편의점': '#FF4D4D', '도서/교육': '#A6B1E1', 
+                '식음료(F&B)': '#DCD6F7', '뷰티/케어': '#8E94F2', 
+                '기타 서비스': '#6B7280'
+            },
+            labels={"share": "매출 비중 (%)", "성장률(%)": "전월비 성장률 (%)"}
+        )
+        fig_bcg.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='rgba(255, 255, 255, 0.5)')))
+        fig_bcg.add_hline(y=0, line_dash="dash", line_color="#EF4444")
+        
+        avg_share = float(df_scatter['share'].mean()) if not df_scatter.empty else 0
+        fig_bcg.add_vline(x=avg_share, line_dash="dash", line_color="#9CA3AF")
+        fig_bcg.update_layout(title={"text": f"{month}월 성장률-매출 비중 매트릭스 (BCG Matrix)"})
+        fig_bcg = apply_dark_theme(fig_bcg)
+
+    # --- 추가 차트 3: 카테고리별 100% 누적 막대 차트 (Bar Chart) ---
+    fig_cat = None
+    if last_month > 0:
+        cat_data = []
+        for m in range(1, last_month + 1):
+            col = f"26.{m:02d}"
+            m_label = f"{m}월"
+            
+            m_df = master[['브랜드', col]].copy()
+            m_df['category'] = m_df['브랜드'].map(lambda b: BRAND_CATEGORY_MAP.get(b, '기타 서비스'))
+            cat_rev = m_df.groupby('category')[col].sum().reset_index()
+            
+            total_m = cat_rev[col].sum()
+            for _, row in cat_rev.iterrows():
+                share = (row[col] / total_m * 100) if total_m > 0 else 0
+                cat_data.append({
+                    '월': m_label,
+                    '카테고리': row['category'],
+                    '비중(%)': share,
+                    '매출액': row[col] / 1e6
+                })
+                
+        df_cat = pd.DataFrame(cat_data)
+        fig_cat = px.bar(
+            df_cat, x="월", y="비중(%)", color="카테고리",
+            color_discrete_map={
+                '유통/편의점': '#FF4D4D', '도서/교육': '#A6B1E1', 
+                '식음료(F&B)': '#DCD6F7', '뷰티/케어': '#8E94F2', 
+                '기타 서비스': '#6B7280'
+            },
+            labels={"비중(%)": "매출 비중 (%)"},
+            barmode="relative"
+        )
+        fig_cat.update_layout(
+            title={"text": f"26년 1월~{last_month}월 카테고리별 매출 비중 (100% Stacked Bar)"},
+            yaxis=dict(range=[0, 100])
+        )
+        fig_cat = apply_dark_theme(fig_cat)
+
     # Ranking logic
     m_data = master[['브랜드', m26_col, m25_col]].copy()
     m_data['증감액'] = m_data[m26_col] - m_data[m25_col]
@@ -356,6 +489,11 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
             "top_brand": top_brand
         },
         "chart": json.loads(fig_pareto.to_json()) if fig_pareto else None,
+        "charts": {
+            "area": json.loads(fig_area.to_json()) if fig_area else None,
+            "bcg": json.loads(fig_bcg.to_json()) if fig_bcg else None,
+            "category_bar": json.loads(fig_cat.to_json()) if fig_cat else None
+        },
         "tables": {
             "all_brands": convert_to_records(all_brands_data)
         }

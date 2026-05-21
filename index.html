@@ -237,6 +237,33 @@
                     <div id="chart-pareto" class="plotly-chart"></div>
                 </div>
 
+                <!-- 신규 추가 심층 분석 차트 섹션 (1) Area Chart & (2) BCG Matrix Chart 가로 배치 -->
+                <div class="charts-grid-2" style="margin-bottom: 2rem;">
+                    <div class="chart-container card">
+                        <div class="chart-desc">
+                            <h3>📈 브랜드별 누적 매출 추이 (Area Chart)</h3>
+                            <p>상위 주요 브랜드 및 기타 브랜드들의 월별 매출 기여도 추이입니다.</p>
+                        </div>
+                        <div id="chart-monthly-area" class="plotly-chart"></div>
+                    </div>
+                    <div class="chart-container card">
+                        <div class="chart-desc">
+                            <h3>🎯 성장률-매출 비중 매트릭스 (BCG Matrix)</h3>
+                            <p>각 브랜드의 매출 비중(X축)과 전월비 성장률(Y축, 극단값 -50%~150% 보정) 매트릭스입니다.</p>
+                        </div>
+                        <div id="chart-monthly-bcg" class="plotly-chart"></div>
+                    </div>
+                </div>
+
+                <!-- 신규 추가 심층 분석 차트 섹션 (3) Category 100% Stacked Bar Chart 세로 배치 -->
+                <div class="chart-container card single-chart" style="margin-bottom: 2rem;">
+                    <div class="chart-desc">
+                        <h3>📊 카테고리별 매출 비중 (100% Stacked Bar)</h3>
+                        <p>산업군 카테고리별 매출 기여도 추이(100% 기준 누적 비율)입니다.</p>
+                    </div>
+                    <div id="chart-monthly-category-bar" class="plotly-chart"></div>
+                </div>
+
                 <!-- Brand Detail Trend Chart -->
                 <div class="chart-container card single-chart" id="brand-trend-container" style="display: none; margin-bottom: 2rem;">
                     <div class="chart-desc">
@@ -260,11 +287,11 @@
                             <table class="data-table" id="table-all-brands">
                                 <thead>
                                     <tr>
-                                        <th style="cursor: pointer;">브랜드</th>
-                                        <th class="num-col" style="cursor: pointer;" id="th-sales-26">해당월 매출</th>
-                                        <th class="num-col" style="cursor: pointer;" id="th-sales-25">전년도 동월 매출</th>
-                                        <th class="num-col" style="cursor: pointer;">증감액</th>
-                                        <th class="num-col" style="cursor: pointer;">증감률</th>
+                                        <th style="cursor: pointer;" data-key="브랜드"><span class="th-text">브랜드</span> <i class="fa-solid fa-sort"></i></th>
+                                        <th class="num-col" style="cursor: pointer;" id="th-sales-26" data-key="sales_26"><span class="th-text">해당월 매출</span> <i class="fa-solid fa-sort-down"></i></th>
+                                        <th class="num-col" style="cursor: pointer;" id="th-sales-25" data-key="sales_25"><span class="th-text">전년도 동월 매출</span> <i class="fa-solid fa-sort"></i></th>
+                                        <th class="num-col" style="cursor: pointer;" data-key="diff"><span class="th-text">증감액</span> <i class="fa-solid fa-sort"></i></th>
+                                        <th class="num-col" style="cursor: pointer;" data-key="pct"><span class="th-text">증감률</span> <i class="fa-solid fa-sort"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody>
