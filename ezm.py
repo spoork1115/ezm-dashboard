@@ -363,24 +363,64 @@ try:
             fig_pareto.update_yaxes(title_text="누적 점유율 (%)", range=[0, 105], secondary_y=True)
             st.plotly_chart(fig_pareto, use_container_width=True)
 
-        st.subheader(f"📊 {tgt_m}월 세부 증감 랭킹")
+        # --- 브랜드별 상세 매출 추이 그래프 (표의 윗부분) ---
+        st.markdown("---")
+        st.subheader("📌 브랜드별 월 매출 추이 분석")
+        
         m_data = master[['브랜드', m26_col, m25_col]].copy()
         m_data['증감액'] = m_data[m26_col] - m_data[m25_col]
         m_data['증감률(%)'] = np.where(m_data[m25_col]>0, (m_data['증감액']/m_data[m25_col]*100).round(1), 0)
         m_data = m_data[(m_data[m26_col] > 0) | (m_data[m25_col] > 0)]
+        
+        # 기본값 정렬 후 브랜드 목록 추출
+        sorted_brands = m_data.sort_values(m26_col, ascending=False)['브랜드'].tolist()
+        
+        if sorted_brands:
+            selected_brand = st.selectbox("분석할 브랜드를 선택하세요", sorted_brands)
+            
+            # 선택된 브랜드의 연간 데이터 추출 (25년 1~12월, 26년 1~last_month)
+            brand_row = master[master['브랜드'] == selected_brand].iloc[0]
+            sales_25_list = [brand_row[f"25.{m:02d}"] for m in range(1, 13)]
+            sales_26_list = [brand_row[f"26.{m:02d}"] for m in range(1, last_month + 1)] if last_month > 0 else []
+            
+            months = [f"{m}월" for m in range(1, 13)]
+            
+            fig_brand = go.Figure()
+            # 25년도 전체 트렌드
+            fig_brand.add_trace(go.Scatter(x=months, y=sales_25_list, name='25년 매출 (전체)', line=dict(color='#A6B1E1', width=2)))
+            # 26년도 (데이터가 존재하는 월까지)
+            if last_month > 0:
+                fig_brand.add_trace(go.Scatter(x=months[:last_month], y=sales_26_list, name='26년 매출 (누적)', mode='lines+markers', line=dict(color='#424874', width=4)))
+                
+            fig_brand.update_layout(
+                title=f"📈 <b>{selected_brand}</b> 월별 매출 비교 추이",
+                xaxis_title="월",
+                yaxis_title="매출액 (원)",
+                hovermode="closest",
+                margin=dict(l=40, r=40, t=50, b=40)
+            )
+            st.plotly_chart(fig_brand, use_container_width=True)
+            
+        st.markdown("---")
+        st.subheader(f"📊 {tgt_m}월 전체 브랜드 실적 현황")
+        st.caption("기본값: 당월 매출액이 높은 순으로 정렬되어 있습니다.")
+
+        m_data_display = m_data.sort_values(m26_col, ascending=False).copy()
+        m_data_display = m_data_display.rename(columns={
+            m26_col: '해당월 매출',
+            m25_col: '전년도 동월 매출',
+            '증감률(%)': '증감률(%)'
+        })
 
         def fmt(df):
             d = df.copy()
-            for c in [m26_col, m25_col, '증감액']: d[c] = d[c].apply(lambda x: f"{x:,.0f}")
-            return d
+            for c in ['해당월 매출', '전년도 동월 매출', '증감액']: 
+                d[c] = d[c].apply(lambda x: f"{x:,.0f}")
+            d['증감률'] = d['증감률(%)'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "0.0%")
+            return d[['브랜드', '해당월 매출', '전년도 동월 매출', '증감액', '증감률']]
 
-        c_up, c_down = st.columns(2)
-        with c_up:
-            st.markdown("**🔺 최대 증가액 TOP 10**")
-            st.dataframe(fmt(m_data.sort_values('증감액', ascending=False).head(10)), hide_index=True, use_container_width=True)
-        with c_down:
-            st.markdown("**🔻 최대 감소액 TOP 10**")
-            st.dataframe(fmt(m_data.sort_values('증감액', ascending=True).head(10)), hide_index=True, use_container_width=True)
+        st.dataframe(fmt(m_data_display), hide_index=True, use_container_width=True)
 
 except Exception as e:
     st.error(f"오류 발생: {e}")
+

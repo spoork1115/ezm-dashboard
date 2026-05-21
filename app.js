@@ -228,22 +228,93 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Tables populating
-        populateTable("table-up", data.tables.top_up, "up");
-        populateTable("table-down", data.tables.top_down, "down");
+        populateAllBrandsTable(data.tables.all_brands);
     }
 
-    function populateTable(tableId, rows, direction) {
-        const tbody = document.querySelector(`#${tableId} tbody`);
+    async function loadAndRenderBrandTrend(brandName) {
+        const container = document.getElementById("brand-trend-container");
+        container.style.display = "block";
+        
+        try {
+            const response = await authFetch(`${API_BASE}/api/brand/trend?brand=${encodeURIComponent(brandName)}`);
+            const trendData = await response.json();
+            
+            const months = Array.from({length: 12}, (_, i) => `${i + 1}월`);
+            
+            // 25년 (1~12월)
+            const trace25 = {
+                x: months,
+                y: trendData.sales_25,
+                name: '25년 실적',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#818CF8', width: 2 }
+            };
+            
+            // 26년 (1~last_month)
+            const trace26Months = months.slice(0, trendData.last_month);
+            const trace26 = {
+                x: trace26Months,
+                y: trendData.sales_26,
+                name: '26년 실적',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#3B82F6', width: 4 }
+            };
+            
+            const layout = {
+                title: {
+                    text: `📈 <b>${brandName}</b> 월별 매출 추이 (전년비 비교)`,
+                    font: { size: 16 }
+                },
+                xaxis: { title: '월' },
+                yaxis: { title: '매출액 (원)' },
+                hovermode: 'closest',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#E5E7EB', family: 'Outfit, system-ui, sans-serif' },
+                margin: { l: 65, r: 40, t: 60, b: 40 },
+                xaxis: {
+                    gridcolor: 'rgba(255, 255, 255, 0.08)',
+                    zerolinecolor: 'rgba(255, 255, 255, 0.15)',
+                    tickfont: { color: '#9CA3AF' }
+                },
+                yaxis: {
+                    gridcolor: 'rgba(255, 255, 255, 0.08)',
+                    zerolinecolor: 'rgba(255, 255, 255, 0.15)',
+                    tickfont: { color: '#9CA3AF' }
+                },
+                legend: {
+                    orientation: 'h',
+                    yanchor: 'bottom',
+                    y: 1.02,
+                    xanchor: 'right',
+                    x: 1
+                }
+            };
+            
+            Plotly.newPlot("chart-brand-trend", [trace25, trace26], layout, {responsive: true, displayModeBar: false});
+        } catch (error) {
+            console.error("Brand trend chart render error:", error);
+        }
+    }
+
+    function populateAllBrandsTable(rows) {
+        const tbody = document.querySelector("#table-all-brands tbody");
         tbody.innerHTML = "";
         
         if (rows.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">데이터가 없습니다.</td></tr>`;
+            document.getElementById("brand-trend-container").style.display = "none";
             return;
         }
 
-        rows.forEach(row => {
+        rows.forEach((row, index) => {
             const tr = document.createElement("tr");
-            const diffClass = direction === "up" ? "text-up" : "text-down";
+            tr.style.cursor = "pointer";
+            tr.dataset.brand = row.브랜드;
+            
+            const diffClass = row.diff >= 0 ? "text-up" : "text-down";
             const diffSign = row.diff > 0 ? "+" : "";
             const pctSign = row.pct > 0 ? "+" : "";
 
@@ -254,9 +325,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td class="num-col ${diffClass}">${diffSign}${formatNumber(row.diff)}</td>
                 <td class="num-col ${diffClass}">${pctSign}${row.pct}%</td>
             `;
+
+            tr.addEventListener("click", () => {
+                const allRows = tbody.querySelectorAll("tr");
+                allRows.forEach(r => r.style.background = "transparent");
+                tr.style.background = "var(--primary-glow)";
+                loadAndRenderBrandTrend(row.브랜드);
+            });
+
             tbody.appendChild(tr);
         });
+
+        // 기본값으로 매출액이 가장 높은 첫 번째 행 선택
+        if (rows.length > 0) {
+            const firstRow = tbody.querySelector("tr");
+            firstRow.style.background = "var(--primary-glow)";
+            loadAndRenderBrandTrend(rows[0].브랜드);
+        }
     }
+
 
     // --- Event Listeners ---
 

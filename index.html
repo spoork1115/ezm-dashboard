@@ -237,45 +237,34 @@
                     <div id="chart-pareto" class="plotly-chart"></div>
                 </div>
 
-                <!-- Tables Grid -->
-                <div class="tables-grid">
-                    <div class="table-container card">
-                        <div class="table-header up">
-                            <i class="fa-solid fa-circle-arrow-up"></i>
-                            <h3>🔺 전년비 최대 증가액 TOP 10</h3>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="data-table" id="table-up">
-                                <thead>
-                                    <tr>
-                                        <th>브랜드</th>
-                                        <th class="num-col">26년 매출</th>
-                                        <th class="num-col">25년 매출</th>
-                                        <th class="num-col">증감액</th>
-                                        <th class="num-col">증감률</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Populated by JS -->
-                                </tbody>
-                            </table>
-                        </div>
+                <!-- Brand Detail Trend Chart -->
+                <div class="chart-container card single-chart" id="brand-trend-container" style="display: none; margin-bottom: 2rem;">
+                    <div class="chart-desc">
+                        <h3 id="brand-trend-title">📌 브랜드 월별 매출 추이</h3>
+                        <p>선택된 브랜드의 25년도(1~12월) 및 26년도(1~최신월) 매출 비교 트렌드입니다. 표의 브랜드를 클릭하면 갱신됩니다.</p>
                     </div>
-                    
+                    <div id="chart-brand-trend" class="plotly-chart"></div>
+                </div>
+
+                <!-- Tables Grid (전체 브랜드 테이블) -->
+                <div class="tables-grid" style="grid-template-columns: 1fr;">
                     <div class="table-container card">
-                        <div class="table-header down">
-                            <i class="fa-solid fa-circle-arrow-down"></i>
-                            <h3>🔻 전년비 최대 감소액 TOP 10</h3>
+                        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fa-solid fa-list-check" style="color: var(--primary);"></i>
+                                <h3>📊 전체 브랜드 매출 및 증감 실적</h3>
+                            </div>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i> 브랜드를 선택하면 상세 그래프를 확인할 수 있습니다.</span>
                         </div>
                         <div class="table-responsive">
-                            <table class="data-table" id="table-down">
+                            <table class="data-table" id="table-all-brands">
                                 <thead>
                                     <tr>
-                                        <th>브랜드</th>
-                                        <th class="num-col">26년 매출</th>
-                                        <th class="num-col">25년 매출</th>
-                                        <th class="num-col">증감액</th>
-                                        <th class="num-col">증감률</th>
+                                        <th style="cursor: pointer;">브랜드</th>
+                                        <th class="num-col" style="cursor: pointer;">해당월 매출</th>
+                                        <th class="num-col" style="cursor: pointer;">전년도 동월 매출</th>
+                                        <th class="num-col" style="cursor: pointer;">증감액</th>
+                                        <th class="num-col" style="cursor: pointer;">증감률</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -285,6 +274,7 @@
                         </div>
                     </div>
                 </div>
+
             </div>
         </main>
     </div>

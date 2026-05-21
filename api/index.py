@@ -333,9 +333,8 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
     m_data['증감률(%)'] = np.where(m_data[m25_col] > 0, (m_data['증감액'] / m_data[m25_col] * 100).round(1), 0)
     m_data = m_data[(m_data[m26_col] > 0) | (m_data[m25_col] > 0)]
     
-    # Sort and format tables
-    top_up = m_data.sort_values('증감액', ascending=False).head(10)
-    top_down = m_data.sort_values('증감액', ascending=True).head(10)
+    # Sort and format tables (정렬: 당월 매출액 m26_col 내림차순)
+    all_brands_data = m_data.sort_values(m26_col, ascending=False)
     
     def convert_to_records(df):
         records = []
@@ -358,7 +357,30 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
         },
         "chart": json.loads(fig_pareto.to_json()) if fig_pareto else None,
         "tables": {
-            "top_up": convert_to_records(top_up),
-            "top_down": convert_to_records(top_down)
+            "all_brands": convert_to_records(all_brands_data)
         }
     }
+
+@app.get("/api/brand/trend", dependencies=[Depends(verify_token)])
+def get_brand_trend(brand: str = Query(...)):
+    master, last_month = get_dashboard_data()
+    
+    brand_data = master[master['브랜드'] == brand]
+    if brand_data.empty:
+        raise HTTPException(status_code=404, detail="Brand not found")
+        
+    row = brand_data.iloc[0]
+    
+    # 25년 데이터 (1월~12월)
+    sales_25 = [float(row[f"25.{m:02d}"]) for m in range(1, 13)]
+    
+    # 26년 데이터 (1월~last_month)
+    sales_26 = [float(row[f"26.{m:02d}"]) for m in range(1, last_month + 1)] if last_month > 0 else []
+    
+    return {
+        "brand": brand,
+        "last_month": int(last_month),
+        "sales_25": sales_25,
+        "sales_26": sales_26
+    }
+
