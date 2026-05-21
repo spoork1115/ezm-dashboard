@@ -392,7 +392,9 @@ try:
             
             with col_c1:
                 # 1. 월별 누적 매출 추이 (Area Chart)
-                top_brands = ['GS25', '예스24', 'GS더프레시', '교보문고']
+                # 26년 YTD(누적) 실적 기준 상위 4개 브랜드를 동적으로 추출 (합계 제외)
+                top_brands = master[master['브랜드'] != '합계'].sort_values('26년_YTD', ascending=False)['브랜드'].head(4).tolist()
+                
                 area_data = []
                 for m in range(1, last_month + 1):
                     col = f"26.{m:02d}"
@@ -408,12 +410,15 @@ try:
                     area_data.append({'월': m_label, '브랜드': '기타 브랜드', '매출액': others_val})
                     
                 df_area = pd.DataFrame(area_data)
+                
+                # 동적 색상 매핑 (상위 브랜드 4종 + 기타 브랜드)
+                color_palette = ['#FF4D4D', '#A6B1E1', '#424874', '#DCD6F7']
+                discrete_map = {brand: color_palette[i] for i, brand in enumerate(top_brands)}
+                discrete_map['기타 브랜드'] = '#8E94F2'
+                
                 fig_monthly_area = px.area(
                     df_area, x="월", y="매출액", color="브랜드",
-                    color_discrete_map={
-                        'GS25': '#FF4D4D', '예스24': '#A6B1E1', 'GS더프레시': '#424874', 
-                        '교보문고': '#DCD6F7', '기타 브랜드': '#8E94F2'
-                    },
+                    color_discrete_map=discrete_map,
                     labels={"매출액": "매출액 (백만원)"}
                 )
                 fig_monthly_area.update_layout(
@@ -508,12 +513,11 @@ try:
             )
             fig_monthly_cat.update_layout(
                 title={"text": f"26년 1월~{last_month}월 카테고리별 매출 비중 (100% Stacked Bar)"},
-                yaxis=dict(range=[0, 100]),
+                yaxis=dict(range=[0, 100], gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF")),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#E5E7EB"),
-                xaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF")),
-                yaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF"))
+                xaxis=dict(gridcolor="rgba(255, 255, 255, 0.08)", tickfont=dict(color="#9CA3AF"))
             )
             st.plotly_chart(fig_monthly_cat, use_container_width=True)
 
