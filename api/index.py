@@ -352,37 +352,72 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
         # 26년 YTD(누적) 실적 기준 상위 4개 브랜드를 동적으로 추출 (합계 제외)
         top_brands = master[master['브랜드'] != '합계'].sort_values('26년_YTD', ascending=False)['브랜드'].head(4).tolist()
         
-        area_data = []
+        # 월 목록: ['1월', '2월', ..., 'last_month월']
+        months = [f"{m}월" for m in range(1, last_month + 1)]
+        
+        # 순서대로 쌓을 브랜드 리스트 (아래에서 위로)
+        brands_ordered = top_brands + ['기타 브랜드']
+        
+        # 각 브랜드의 월별 실제 매출액 (백만원 단위)
+        brand_monthly_sales = {b: [] for b in brands_ordered}
+        
         for m in range(1, last_month + 1):
             col = f"26.{m:02d}"
-            m_label = f"{m}월"
-            
-            # 각 탑 브랜드 매출
-            for brand in top_brands:
-                brand_row = master[master['브랜드'] == brand]
-                val = float(brand_row[col].iloc[0]) / 1e6 if not brand_row.empty else 0
-                area_data.append({'월': m_label, '브랜드': brand, '매출액': val})
-                
+            # 상위 4개 브랜드
+            for b in top_brands:
+                row = master[master['브랜드'] == b]
+                val = float(row[col].iloc[0]) / 1e6 if not row.empty else 0.0
+                brand_monthly_sales[b].append(val)
             # 기타 브랜드 합산
             others_row = master[~master['브랜드'].isin(top_brands)]
             others_val = float(others_row[col].sum()) / 1e6
-            area_data.append({'월': m_label, '브랜드': '기타 브랜드', '매출액': others_val})
+            brand_monthly_sales['기타 브랜드'].append(others_val)
             
-        df_area = pd.DataFrame(area_data)
+        # 아래에서 위로 쌓기 위한 누적 Y값 연산
+        cumulative_y = {}
+        current_sum = np.zeros(last_month)
+        for b in brands_ordered:
+            sales = np.array(brand_monthly_sales[b])
+            current_sum = current_sum + sales
+            cumulative_y[b] = current_sum.tolist()
+            
+        # 다크 테마 고대비 색상 팔레트
+        # 1. GS25(Coral Red) -> 2. GS더프레시(Emerald Mint) -> 3. 예스24(Vivid Sky Blue) -> 4. 교보문고(Electric Violet) -> 5. 기타 브랜드(Golden Amber)
+        color_palette = ['#EF4444', '#10B981', '#3B82F6', '#8B5CF6', '#F59E0B']
+        color_map = {b: color_palette[i] for i, b in enumerate(brands_ordered)}
         
-        # 동적 색상 매핑 (상위 브랜드 4종 + 기타 브랜드)
-        color_palette = ['#FF4D4D', '#A6B1E1', '#424874', '#DCD6F7']
-        discrete_map = {brand: color_palette[i] for i, brand in enumerate(top_brands)}
-        discrete_map['기타 브랜드'] = '#8E94F2'
+        fig_area = go.Figure()
         
-        fig_area = px.area(
-            df_area, x="월", y="매출액", color="브랜드",
-            color_discrete_map=discrete_map,
-            labels={"매출액": "매출액 (백만원)"}
-        )
+        # 툴팁 및 범례 순서를 위에서 아래로 일치시키기 위해 역순 추가
+        reversed_brands = list(reversed(brands_ordered))
+        
+        for idx, b in enumerate(reversed_brands):
+            # 가장 바닥에 깔리는 브랜드는 tozeroy로 영역을 채움
+            fill_mode = 'tozeroy' if idx == len(reversed_brands) - 1 else 'tonexty'
+            
+            fig_area.add_trace(go.Scatter(
+                x=months,
+                y=cumulative_y[b],
+                name=b,
+                mode='lines',
+                line=dict(width=0.5, color=color_map[b]),
+                fill=fill_mode,
+                fillcolor=color_map[b],
+                customdata=brand_monthly_sales[b],
+                hovertemplate="%{customdata:,.1f}백만원<extra></extra>",
+                hoverlabel=dict(
+                    font=dict(color=color_map[b]),
+                    bordercolor=color_map[b]
+                )
+            ))
+            
         fig_area.update_layout(
             title={"text": f"26년 1월~{last_month}월 브랜드별 누적 매출 추이"},
-            hovermode="x unified"
+            hovermode="x unified",
+            legend=dict(
+                traceorder="normal",
+                title_text="브랜드"
+            )
         )
         fig_area = apply_dark_theme(fig_area)
 
