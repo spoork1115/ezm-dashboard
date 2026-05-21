@@ -254,7 +254,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 name: '25년 실적',
                 type: 'scatter',
                 mode: 'lines+markers',
-                line: { color: '#A6B1E1', width: 2, dash: 'dot' }
+                line: { color: '#A6B1E1', width: 2, dash: 'dot' },
+                hovertemplate: "<b>25년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel: {
+                    bgcolor: 'rgba(30, 30, 30, 0.9)',
+                    bordercolor: '#A6B1E1',
+                    font: { color: '#A6B1E1' }
+                }
             };
             
             // 26년 (1~last_month) - 굵고 선명한 코랄 레드 (#FF4D4D)
@@ -266,7 +272,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 type: 'scatter',
                 mode: 'lines+markers',
                 line: { color: '#FF4D4D', width: 4 },
-                marker: { size: 8 }
+                marker: { size: 8 },
+                hovertemplate: "<b>26년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel: {
+                    bgcolor: 'rgba(30, 30, 30, 0.9)',
+                    bordercolor: '#FF4D4D',
+                    font: { color: '#FF4D4D' }
+                }
             };
             
             const layout = {

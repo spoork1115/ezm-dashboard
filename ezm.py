@@ -399,7 +399,13 @@ try:
                 x=months, 
                 y=sales_25_list, 
                 name='25년 매출 (전체)', 
-                line=dict(color='#A6B1E1', width=2, dash='dot')
+                line=dict(color='#A6B1E1', width=2, dash='dot'),
+                hovertemplate="<b>25년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel=dict(
+                    bgcolor='rgba(30, 30, 30, 0.9)',
+                    bordercolor='#A6B1E1',
+                    font=dict(color='#A6B1E1')
+                )
             ))
             # 26년도 (데이터가 존재하는 월까지) - 굵고 선명한 코랄 레드 (#FF4D4D)
             if last_month > 0:
@@ -409,7 +415,13 @@ try:
                     name='26년 매출 (누적)', 
                     mode='lines+markers', 
                     line=dict(color='#FF4D4D', width=4),
-                    marker=dict(size=8)
+                    marker=dict(size=8),
+                    hovertemplate="<b>26년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                    hoverlabel=dict(
+                        bgcolor='rgba(30, 30, 30, 0.9)',
+                        bordercolor='#FF4D4D',
+                        font=dict(color='#FF4D4D')
+                    )
                 ))
                 
             fig_brand.update_layout(
