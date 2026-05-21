@@ -443,38 +443,39 @@ try:
         m_data_display = m_data_sorted.copy()
         m_data_display = m_data_display.rename(columns={
             m26_col: col_26_name,
-            m25_col: col_25_name,
-            '증감률(%)': '증감률(%)'
+            m25_col: col_25_name
         })
+        m_data_display = m_data_display[['브랜드', col_26_name, col_25_name, '증감액', '증감률(%)']]
 
-        def fmt(df):
-            d = df.copy()
-            for c in [col_26_name, col_25_name, '증감액']: 
-                d[c] = d[c].apply(lambda x: f"{x:,.0f}")
-            d['증감률'] = d['증감률(%)'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "0.0%")
-            return d[['브랜드', col_26_name, col_25_name, '증감액', '증감률']]
-
-        formatted_df = fmt(m_data_display)
+        # st.dataframe을 위한 column_config 설정 (정렬을 위해 원본 데이터 타입을 유지하되 표시 형식만 기호 및 쉼표 표기)
+        col_config = {
+            "브랜드": st.column_config.TextColumn("브랜드"),
+            col_26_name: st.column_config.NumberColumn(col_26_name, format="%,.0f"),
+            col_25_name: st.column_config.NumberColumn(col_25_name, format="%,.0f"),
+            "증감액": st.column_config.NumberColumn("증감액", format="%+,.0f"),
+            "증감률(%)": st.column_config.NumberColumn("증감률", format="%+,.1f%%")
+        }
 
         # 1.35.0+ 테이블 행 선택 처리 지원
         try:
             event = st.dataframe(
-                formatted_df,
+                m_data_display,
                 hide_index=True,
                 use_container_width=True,
+                column_config=col_config,
                 on_select="rerun",
                 selection_mode="single-row"
             )
             
             if event and "rows" in event.selection and event.selection["rows"]:
                 selected_idx = event.selection["rows"][0]
-                clicked_brand = formatted_df.iloc[selected_idx]['브랜드']
+                clicked_brand = m_data_display.iloc[selected_idx]['브랜드']
                 if st.session_state['selected_brand'] != clicked_brand:
                     st.session_state['selected_brand'] = clicked_brand
                     st.rerun()
         except Exception as e:
             # 하위 버전 스트림릿용 폴백
-            st.dataframe(formatted_df, hide_index=True, use_container_width=True)
+            st.dataframe(m_data_display, hide_index=True, use_container_width=True, column_config=col_config)
             fallback_idx = sorted_brands.index(st.session_state['selected_brand']) if st.session_state['selected_brand'] in sorted_brands else 0
             fallback_brand = st.selectbox("상세 매출 추이를 확인할 브랜드 선택 (버전 폴백)", sorted_brands, index=fallback_idx)
             if st.session_state['selected_brand'] != fallback_brand:
