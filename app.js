@@ -227,7 +227,9 @@ document.addEventListener("DOMContentLoaded", () => {
             chartParetoDiv.style.display = "none";
         }
 
-        // Tables populating
+        // Tables populating & Dynamic Header updates
+        document.getElementById("th-sales-26").textContent = `26년 ${month}월`;
+        document.getElementById("th-sales-25").textContent = `25년 ${month}월`;
         populateAllBrandsTable(data.tables.all_brands);
     }
 
@@ -241,34 +243,39 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const months = Array.from({length: 12}, (_, i) => `${i + 1}월`);
             
-            // 25년 (1~12월)
+            // 데이터를 백만원 단위로 변환 (value / 1e6)
+            const sales25M = trendData.sales_25.map(v => v / 1e6);
+            const sales26M = trendData.sales_26.map(v => v / 1e6);
+            
+            // 25년 (1~12월) - 얇고 차분한 회청색 점선 (#A6B1E1)
             const trace25 = {
                 x: months,
-                y: trendData.sales_25,
+                y: sales25M,
                 name: '25년 실적',
                 type: 'scatter',
                 mode: 'lines+markers',
-                line: { color: '#818CF8', width: 2 }
+                line: { color: '#A6B1E1', width: 2, dash: 'dot' }
             };
             
-            // 26년 (1~last_month)
+            // 26년 (1~last_month) - 굵고 선명한 코랄 레드 (#FF4D4D)
             const trace26Months = months.slice(0, trendData.last_month);
             const trace26 = {
                 x: trace26Months,
-                y: trendData.sales_26,
+                y: sales26M,
                 name: '26년 실적',
                 type: 'scatter',
                 mode: 'lines+markers',
-                line: { color: '#3B82F6', width: 4 }
+                line: { color: '#FF4D4D', width: 4 },
+                marker: { size: 8 }
             };
             
             const layout = {
                 title: {
-                    text: `📈 <b>${brandName}</b> 월별 매출 추이 (전년비 비교)`,
+                    text: `📈 <b>${brandName}</b> 월별 매출 비교 추이 (단위: 백만원)`,
                     font: { size: 16 }
                 },
                 xaxis: { title: '월' },
-                yaxis: { title: '매출액 (원)' },
+                yaxis: { title: '매출액 (백만원)' },
                 hovermode: 'closest',
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',

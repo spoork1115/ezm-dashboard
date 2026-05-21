@@ -364,62 +364,111 @@ try:
             st.plotly_chart(fig_pareto, use_container_width=True)
 
         # --- 브랜드별 상세 매출 추이 그래프 (표의 윗부분) ---
-        st.markdown("---")
-        st.subheader("📌 브랜드별 월 매출 추이 분석")
-        
+        if 'selected_brand' not in st.session_state:
+            st.session_state['selected_brand'] = None
+            
         m_data = master[['브랜드', m26_col, m25_col]].copy()
         m_data['증감액'] = m_data[m26_col] - m_data[m25_col]
         m_data['증감률(%)'] = np.where(m_data[m25_col]>0, (m_data['증감액']/m_data[m25_col]*100).round(1), 0)
         m_data = m_data[(m_data[m26_col] > 0) | (m_data[m25_col] > 0)]
         
         # 기본값 정렬 후 브랜드 목록 추출
-        sorted_brands = m_data.sort_values(m26_col, ascending=False)['브랜드'].tolist()
+        m_data_sorted = m_data.sort_values(m26_col, ascending=False).copy()
+        sorted_brands = m_data_sorted['브랜드'].tolist()
         
-        if sorted_brands:
-            selected_brand = st.selectbox("분석할 브랜드를 선택하세요", sorted_brands)
+        # 기본 선택 브랜드 설정
+        if sorted_brands and (st.session_state['selected_brand'] not in sorted_brands):
+            st.session_state['selected_brand'] = sorted_brands[0]
             
-            # 선택된 브랜드의 연간 데이터 추출 (25년 1~12월, 26년 1~last_month)
+        selected_brand = st.session_state['selected_brand']
+        
+        if selected_brand:
+            st.markdown("---")
+            st.subheader(f"📈 {selected_brand} 월별 매출 비교 추이 (단위: 백만원)")
+            
+            # 선택된 브랜드의 연간 데이터 추출 및 백만원 단위 변환 (25년 1~12월, 26년 1~last_month)
             brand_row = master[master['브랜드'] == selected_brand].iloc[0]
-            sales_25_list = [brand_row[f"25.{m:02d}"] for m in range(1, 13)]
-            sales_26_list = [brand_row[f"26.{m:02d}"] for m in range(1, last_month + 1)] if last_month > 0 else []
+            sales_25_list = [float(brand_row[f"25.{m:02d}"]) / 1e6 for m in range(1, 13)]
+            sales_26_list = [float(brand_row[f"26.{m:02d}"]) / 1e6 for m in range(1, last_month + 1)] if last_month > 0 else []
             
             months = [f"{m}월" for m in range(1, 13)]
             
             fig_brand = go.Figure()
-            # 25년도 전체 트렌드
-            fig_brand.add_trace(go.Scatter(x=months, y=sales_25_list, name='25년 매출 (전체)', line=dict(color='#A6B1E1', width=2)))
-            # 26년도 (데이터가 존재하는 월까지)
+            # 25년도 전체 트렌드 - 얇고 차분한 회청색 점선 (#A6B1E1)
+            fig_brand.add_trace(go.Scatter(
+                x=months, 
+                y=sales_25_list, 
+                name='25년 매출 (전체)', 
+                line=dict(color='#A6B1E1', width=2, dash='dot')
+            ))
+            # 26년도 (데이터가 존재하는 월까지) - 굵고 선명한 코랄 레드 (#FF4D4D)
             if last_month > 0:
-                fig_brand.add_trace(go.Scatter(x=months[:last_month], y=sales_26_list, name='26년 매출 (누적)', mode='lines+markers', line=dict(color='#424874', width=4)))
+                fig_brand.add_trace(go.Scatter(
+                    x=months[:last_month], 
+                    y=sales_26_list, 
+                    name='26년 매출 (누적)', 
+                    mode='lines+markers', 
+                    line=dict(color='#FF4D4D', width=4),
+                    marker=dict(size=8)
+                ))
                 
             fig_brand.update_layout(
-                title=f"📈 <b>{selected_brand}</b> 월별 매출 비교 추이",
                 xaxis_title="월",
-                yaxis_title="매출액 (원)",
+                yaxis_title="매출액 (백만원)",
                 hovermode="closest",
-                margin=dict(l=40, r=40, t=50, b=40)
+                margin=dict(l=40, r=40, t=20, b=40)
             )
             st.plotly_chart(fig_brand, use_container_width=True)
             
         st.markdown("---")
         st.subheader(f"📊 {tgt_m}월 전체 브랜드 실적 현황")
-        st.caption("기본값: 당월 매출액이 높은 순으로 정렬되어 있습니다.")
+        st.caption("아래 표에서 브랜드를 클릭하시면 상단의 매출 추이 그래프가 해당 브랜드로 변경됩니다.")
 
-        m_data_display = m_data.sort_values(m26_col, ascending=False).copy()
+        # 동적 헤더 이름 설정: 26년 X월, 25년 X월
+        col_26_name = f"26년 {tgt_m}월"
+        col_25_name = f"25년 {tgt_m}월"
+
+        m_data_display = m_data_sorted.copy()
         m_data_display = m_data_display.rename(columns={
-            m26_col: '해당월 매출',
-            m25_col: '전년도 동월 매출',
+            m26_col: col_26_name,
+            m25_col: col_25_name,
             '증감률(%)': '증감률(%)'
         })
 
         def fmt(df):
             d = df.copy()
-            for c in ['해당월 매출', '전년도 동월 매출', '증감액']: 
+            for c in [col_26_name, col_25_name, '증감액']: 
                 d[c] = d[c].apply(lambda x: f"{x:,.0f}")
             d['증감률'] = d['증감률(%)'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "0.0%")
-            return d[['브랜드', '해당월 매출', '전년도 동월 매출', '증감액', '증감률']]
+            return d[['브랜드', col_26_name, col_25_name, '증감액', '증감률']]
 
-        st.dataframe(fmt(m_data_display), hide_index=True, use_container_width=True)
+        formatted_df = fmt(m_data_display)
+
+        # 1.35.0+ 테이블 행 선택 처리 지원
+        try:
+            event = st.dataframe(
+                formatted_df,
+                hide_index=True,
+                use_container_width=True,
+                on_select="rerun",
+                selection_mode="single-row"
+            )
+            
+            if event and "rows" in event.selection and event.selection["rows"]:
+                selected_idx = event.selection["rows"][0]
+                clicked_brand = formatted_df.iloc[selected_idx]['브랜드']
+                if st.session_state['selected_brand'] != clicked_brand:
+                    st.session_state['selected_brand'] = clicked_brand
+                    st.rerun()
+        except Exception as e:
+            # 하위 버전 스트림릿용 폴백
+            st.dataframe(formatted_df, hide_index=True, use_container_width=True)
+            fallback_idx = sorted_brands.index(st.session_state['selected_brand']) if st.session_state['selected_brand'] in sorted_brands else 0
+            fallback_brand = st.selectbox("상세 매출 추이를 확인할 브랜드 선택 (버전 폴백)", sorted_brands, index=fallback_idx)
+            if st.session_state['selected_brand'] != fallback_brand:
+                st.session_state['selected_brand'] = fallback_brand
+                st.rerun()
+
 
 except Exception as e:
     st.error(f"오류 발생: {e}")
