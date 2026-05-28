@@ -186,6 +186,7 @@ def apply_dark_theme(fig):
     return fig
 
 @app.post("/api/login")
+@app.post("/login")
 def login(req: LoginRequest):
     if req.password == DASHBOARD_PASSWORD:
         token = hashlib.sha256(f"{DASHBOARD_PASSWORD}:{SECRET_KEY}".encode()).hexdigest()
@@ -194,6 +195,7 @@ def login(req: LoginRequest):
         raise HTTPException(status_code=400, detail="Invalid password")
 
 @app.get("/api/meta", dependencies=[Depends(verify_token)])
+@app.get("/meta", dependencies=[Depends(verify_token)])
 def get_meta():
     master, last_month = get_dashboard_data()
     return {
@@ -202,6 +204,7 @@ def get_meta():
     }
 
 @app.get("/api/trend", dependencies=[Depends(verify_token)])
+@app.get("/trend", dependencies=[Depends(verify_token)])
 def get_trend_data():
     master, last_month = get_dashboard_data()
     
@@ -266,6 +269,7 @@ def get_trend_data():
     }
 
 @app.get("/api/portfolio", dependencies=[Depends(verify_token)])
+@app.get("/portfolio", dependencies=[Depends(verify_token)])
 def get_portfolio_data():
     master, last_month = get_dashboard_data()
     
@@ -316,6 +320,7 @@ def get_portfolio_data():
     }
 
 @app.get("/api/monthly", dependencies=[Depends(verify_token)])
+@app.get("/monthly", dependencies=[Depends(verify_token)])
 def get_monthly_data(month: int = Query(..., ge=1, le=12)):
     master, last_month = get_dashboard_data()
     
@@ -540,6 +545,7 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
     }
 
 @app.get("/api/brand/trend", dependencies=[Depends(verify_token)])
+@app.get("/brand/trend", dependencies=[Depends(verify_token)])
 def get_brand_trend(brand: str = Query(...)):
     master, last_month = get_dashboard_data()
     
