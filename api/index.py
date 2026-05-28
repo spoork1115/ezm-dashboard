@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException, Depends, Header
+from fastapi import FastAPI, Query, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -567,4 +567,16 @@ def get_brand_trend(brand: str = Query(...)):
         "sales_25": sales_25,
         "sales_26": sales_26
     }
+
+@app.api_route("/{path_name:path}", methods=["GET", "POST", "PUT", "DELETE"])
+def catch_all(request: Request, path_name: str):
+    return {
+        "message": "Catch-all route triggered",
+        "path_name": path_name,
+        "request_url_path": request.url.path,
+        "scope_path": request.scope.get("path"),
+        "scope_root_path": request.scope.get("root_path"),
+        "method": request.method
+    }
+
 
