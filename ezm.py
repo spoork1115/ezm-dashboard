@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-st.set_page_config(page_title="이지멤버스 인사이트 대시보드", layout="wide")
+st.set_page_config(page_title="EZ-Insight 대시보드", layout="wide")
 
 # --- Brand Categories Configuration ---
 BRAND_CATEGORY_MAP = {
@@ -115,7 +115,7 @@ def check_password():
         </style>
         <div class="login-card">
             <div class="login-logo">🔒</div>
-            <div class="login-title">이지멤버스 BI 대시보드</div>
+            <div class="login-title">EZ-Insight 대시보드</div>
             <div class="login-subtitle">Secure Insight Portal</div>
             <p>본 시스템은 관계자 외 접근이 제한되어 있습니다.<br>보안 비밀번호를 입력해 주십시오.</p>
         </div>
@@ -242,7 +242,7 @@ try:
         "📅 세부 월별 분석"
     ])
 
-    st.title("📊 이지멤버스 BI 대시보드")
+    st.title("📊 EZ-Insight 대시보드")
     if last_month > 0:
         st.caption(f"기준월: 2026년 {last_month}월 누적 데이터(YTD) 반영")
 

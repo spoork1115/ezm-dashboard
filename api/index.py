@@ -14,7 +14,7 @@ import hashlib
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-app = FastAPI(title="EasyMembers BI Dashboard API")
+app = FastAPI(title="EZ-Insight BI Dashboard API")
 
 # Enable CORS for local development and integration
 app.add_middleware(
@@ -27,7 +27,7 @@ app.add_middleware(
 
 # --- Security & Password Configurations ---
 DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "1115")
-SECRET_KEY = os.environ.get("SECRET_KEY", "easy-members-secret-key-1115")
+SECRET_KEY = os.environ.get("SECRET_KEY", "ez-insight-secret-key-1115")
 
 class LoginRequest(BaseModel):
     password: str
@@ -233,7 +233,7 @@ def get_trend_data():
         connector={"line":{"color":"rgba(255, 255, 255, 0.3)"}},
         increasing={"marker":{"color":"#10B981"}}, # Emerald Green
         decreasing={"marker":{"color":"#EF4444"}}, # Rose Red
-        totals={"marker":{"color":"#3B82F6"}}       # Blue
+        totals={"marker":{"color":"#10B981"}}       # Mint
     ))
     fig_wf.update_layout(title={"text": "26년 누적 매출 증감 원인 분석 (Waterfall)"})
     fig_wf = apply_dark_theme(fig_wf)
@@ -248,8 +248,8 @@ def get_trend_data():
     
     fig_line = go.Figure()
     fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['24년'].cumsum(), name='24년 누적', line=dict(dash='dot', color='rgba(156, 163, 175, 0.5)')))
-    fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['25년'].cumsum(), name='25년 누적', line=dict(color='#818CF8', width=2))) # Indigo Light
-    fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['26년'].cumsum(), name='26년 누적', mode='lines+markers', line=dict(color='#3B82F6', width=4))) # Blue Bold
+    fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['25년'].cumsum(), name='25년 누적', line=dict(color='#6EE7B7', width=2))) # Light Mint
+    fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['26년'].cumsum(), name='26년 누적', mode='lines+markers', line=dict(color='#10B981', width=4))) # Mint Bold
     
     fig_line.update_layout(title={"text": "3개년 월별 누적 실적(YTD) 비교"})
     fig_line = apply_dark_theme(fig_line)
@@ -346,7 +346,7 @@ def get_monthly_data(month: int = Query(..., ge=1, le=12)):
         df_pareto = df_m.head(20)
         
         fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_pareto.add_trace(go.Bar(x=df_pareto['브랜드'], y=df_pareto[m26_col], name="매출액", marker_color='#818CF8'), secondary_y=False)
+        fig_pareto.add_trace(go.Bar(x=df_pareto['브랜드'], y=df_pareto[m26_col], name="매출액", marker_color='#10B981'), secondary_y=False)
         fig_pareto.add_trace(go.Scatter(x=df_pareto['브랜드'], y=df_pareto['누적비율(%)'], name="누적 점유율(%)", mode='lines+markers', line=dict(color='#F59E0B', width=3)), secondary_y=True) # Amber color
         
         fig_pareto.update_yaxes(title_text="매출액", secondary_y=False)

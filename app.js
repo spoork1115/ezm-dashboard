@@ -438,7 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Handle title and fetch data
             if (currentMode === "trend") {
-                document.getElementById("dashboard-title").textContent = "📊 이지멤버스 BI 대시보드";
+                document.getElementById("dashboard-title").textContent = "📊 EZ-Insight 대시보드";
             } else if (currentMode === "portfolio") {
                 document.getElementById("dashboard-title").textContent = "🧩 브랜드 포트폴리오 분석";
             } else if (currentMode === "monthly") {

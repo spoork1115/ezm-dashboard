@@ -4,28 +4,28 @@
    ========================================== */
 
 :root {
-    --bg-primary: #0b0f19;
-    --bg-gradient: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 50%, #0b0f19 100%);
-    --sidebar-bg: rgba(15, 23, 42, 0.6);
-    --card-bg: rgba(30, 41, 59, 0.45);
-    --card-hover-bg: rgba(30, 41, 59, 0.6);
-    --card-border: rgba(255, 255, 255, 0.08);
-    --card-hover-border: rgba(59, 130, 246, 0.3);
+    --bg-primary: #070d19;
+    --bg-gradient: radial-gradient(circle at 50% 0%, #0d1527 0%, #080f1e 50%, #070d19 100%);
+    --sidebar-bg: rgba(11, 19, 38, 0.7);
+    --card-bg: rgba(17, 28, 54, 0.45);
+    --card-hover-bg: rgba(17, 28, 54, 0.65);
+    --card-border: rgba(255, 255, 255, 0.05);
+    --card-hover-border: rgba(16, 185, 129, 0.35);
     
     --text-primary: #f3f4f6;
     --text-secondary: #9ca3af;
     --text-muted: #6b7280;
     
-    --primary: #3b82f6;
-    --primary-glow: rgba(59, 130, 246, 0.15);
+    --primary: #10b981;
+    --primary-glow: rgba(16, 185, 129, 0.15);
     --success: #10b981;
     --success-bg: rgba(16, 185, 129, 0.1);
     --danger: #ef4444;
     --danger-bg: rgba(239, 68, 68, 0.1);
     --warning: #f59e0b;
     --warning-bg: rgba(245, 158, 11, 0.1);
-    --indigo: #6366f1;
-    --indigo-bg: rgba(99, 102, 241, 0.1);
+    --indigo: #3b82f6;
+    --indigo-bg: rgba(59, 130, 246, 0.1);
     --purple: #8b5cf6;
     --purple-bg: rgba(139, 92, 246, 0.1);
     
