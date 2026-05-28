@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
@@ -10,6 +11,8 @@ import json
 import time
 import os
 import hashlib
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(title="EasyMembers BI Dashboard API")
 
@@ -568,15 +571,25 @@ def get_brand_trend(brand: str = Query(...)):
         "sales_26": sales_26
     }
 
-@app.api_route("/{path_name:path}", methods=["GET", "POST", "PUT", "DELETE"])
-def catch_all(request: Request, path_name: str):
-    return {
-        "message": "Catch-all route triggered",
-        "path_name": path_name,
-        "request_url_path": request.url.path,
-        "scope_path": request.scope.get("path"),
-        "scope_root_path": request.scope.get("root_path"),
-        "method": request.method
-    }
+@app.get("/")
+def read_index():
+    index_path = os.path.join(BASE_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"detail": "index.html not found"}
+
+@app.get("/app.js")
+def read_js():
+    js_path = os.path.join(BASE_DIR, "app.js")
+    if os.path.exists(js_path):
+        return FileResponse(js_path, media_type="application/javascript")
+    return {"detail": "app.js not found"}
+
+@app.get("/style.css")
+def read_css():
+    css_path = os.path.join(BASE_DIR, "style.css")
+    if os.path.exists(css_path):
+        return FileResponse(css_path, media_type="text/css")
+    return {"detail": "style.css not found"}
 
 
