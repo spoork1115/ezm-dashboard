@@ -319,6 +319,68 @@ try:
                 fig_line.add_trace(go.Scatter(x=ytd_trend['월'], y=ytd_trend['26년'].cumsum(), name='26년 누적', mode='lines+markers', line=dict(color='#424874', width=3)))
                 st.plotly_chart(fig_line, use_container_width=True)
 
+            # --- [신규 추가] 이지멤버스 전체 3개년 월별 매출 추이 비교 ---
+            st.markdown("---")
+            st.subheader("📌 이지멤버스 전체 3개년 월별 매출 추이 비교 (단위: 백만원)")
+            
+            sales_total_24 = [float(master[f"24.{m:02d}"].sum()) / 1e6 for m in range(1, 13)]
+            sales_total_25 = [float(master[f"25.{m:02d}"].sum()) / 1e6 for m in range(1, 13)]
+            sales_total_26 = [float(master[f"26.{m:02d}"].sum()) / 1e6 for m in range(1, last_month + 1)] if last_month > 0 else []
+            
+            months = [f"{m}월" for m in range(1, 13)]
+            
+            fig_total = go.Figure()
+            # 24년 전체 매출 - 얇고 연한 보라색 점선 (#DCD6F7)
+            fig_total.add_trace(go.Scatter(
+                x=months, 
+                y=sales_total_24, 
+                name='24년 전체 매출', 
+                line=dict(color='#DCD6F7', width=2, dash='dash'),
+                hovertemplate="<b>24년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel=dict(
+                    bgcolor='rgba(30, 30, 30, 0.9)',
+                    bordercolor='#DCD6F7',
+                    font=dict(color='#DCD6F7')
+                )
+            ))
+            # 25년 전체 매출 - 얇고 차분한 회청색 점선 (#A6B1E1)
+            fig_total.add_trace(go.Scatter(
+                x=months, 
+                y=sales_total_25, 
+                name='25년 전체 매출', 
+                line=dict(color='#A6B1E1', width=2, dash='dot'),
+                hovertemplate="<b>25년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel=dict(
+                    bgcolor='rgba(30, 30, 30, 0.9)',
+                    bordercolor='#A6B1E1',
+                    font=dict(color='#A6B1E1')
+                )
+            ))
+            # 26년 전체 매출 (데이터가 존재하는 월까지) - 굵고 선명한 코랄 레드 (#FF4D4D)
+            if last_month > 0:
+                fig_total.add_trace(go.Scatter(
+                    x=months[:last_month], 
+                    y=sales_total_26, 
+                    name='26년 전체 매출 (누적)', 
+                    mode='lines+markers', 
+                    line=dict(color='#FF4D4D', width=4),
+                    marker=dict(size=8),
+                    hovertemplate="<b>26년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                    hoverlabel=dict(
+                        bgcolor='rgba(30, 30, 30, 0.9)',
+                        bordercolor='#FF4D4D',
+                        font=dict(color='#FF4D4D')
+                    )
+                ))
+                
+            fig_total.update_layout(
+                xaxis_title="월",
+                yaxis_title="매출액 (백만원)",
+                hovermode="closest",
+                margin=dict(l=40, r=40, t=20, b=40)
+            )
+            st.plotly_chart(fig_total, use_container_width=True)
+
     # ==========================================
     # 모드 2: 브랜드 포트폴리오 분석 (새로운 분석 기법 추가)
     # ==========================================

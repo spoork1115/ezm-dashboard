@@ -182,6 +182,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Charts
         Plotly.newPlot("chart-waterfall", data.charts.waterfall.data, data.charts.waterfall.layout, {responsive: true, displayModeBar: false});
         Plotly.newPlot("chart-line", data.charts.line.data, data.charts.line.layout, {responsive: true, displayModeBar: false});
+        
+        // [신규 추가] 이지멤버스 전체 3개년 월별 매출 추이 비교 차트
+        const totalMonthlyDiv = document.getElementById("chart-total-monthly");
+        if (totalMonthlyDiv && data.charts.total_monthly) {
+            Plotly.newPlot("chart-total-monthly", data.charts.total_monthly.data, data.charts.total_monthly.layout, {responsive: true, displayModeBar: false});
+        }
     }
 
     // Render 2: Portfolio Mode

@@ -261,6 +261,64 @@ def get_trend_data():
     fig_line.update_layout(title={"text": "3개년 월별 누적 실적(YTD) 비교"})
     fig_line = apply_dark_theme(fig_line)
 
+    # 3. 이지멤버스 전체 3개년 월별 매출 추이 비교
+    sales_total_24 = [float(master[f"24.{m:02d}"].sum()) / 1e6 for m in range(1, 13)]
+    sales_total_25 = [float(master[f"25.{m:02d}"].sum()) / 1e6 for m in range(1, 13)]
+    sales_total_26 = [float(master[f"26.{m:02d}"].sum()) / 1e6 for m in range(1, last_month + 1)] if last_month > 0 else []
+    
+    months = [f"{m}월" for m in range(1, 13)]
+    
+    fig_total = go.Figure()
+    # 24년 전체 매출 - 얇고 연한 보라색 점선 (#DCD6F7)
+    fig_total.add_trace(go.Scatter(
+        x=months, 
+        y=sales_total_24, 
+        name='24년 전체 매출', 
+        line=dict(color='rgba(220, 214, 247, 0.8)', width=2, dash='dash'),
+        hovertemplate="<b>24년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+        hoverlabel=dict(
+            bgcolor='rgba(30, 30, 30, 0.9)',
+            bordercolor='#DCD6F7',
+            font=dict(color='#DCD6F7')
+        )
+    ))
+    # 25년 전체 매출 - 얇고 차분한 회청색 점선 (#A6B1E1)
+    fig_total.add_trace(go.Scatter(
+        x=months, 
+        y=sales_total_25, 
+        name='25년 전체 매출', 
+        line=dict(color='#A6B1E1', width=2, dash='dot'),
+        hovertemplate="<b>25년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+        hoverlabel=dict(
+            bgcolor='rgba(30, 30, 30, 0.9)',
+            bordercolor='#A6B1E1',
+            font=dict(color='#A6B1E1')
+        )
+    ))
+    # 26년 전체 매출 - 굵고 선명한 코랄 레드 (#FF4D4D)
+    if last_month > 0:
+        fig_total.add_trace(go.Scatter(
+            x=months[:last_month], 
+            y=sales_total_26, 
+            name='26년 전체 매출 (누적)', 
+            mode='lines+markers', 
+            line=dict(color='#FF4D4D', width=4),
+            marker=dict(size=8),
+            hovertemplate="<b>26년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+            hoverlabel=dict(
+                bgcolor='rgba(30, 30, 30, 0.9)',
+                bordercolor='#FF4D4D',
+                font=dict(color='#FF4D4D')
+            )
+        ))
+        
+    fig_total.update_layout(
+        title={"text": "이지멤버스 전체 3개년 월별 매출 추이 비교 (단위: 백만원)"},
+        hovermode="closest",
+        margin=dict(l=40, r=40, t=50, b=40)
+    )
+    fig_total = apply_dark_theme(fig_total)
+
     return {
         "kpi": {
             "tot_24": tot_24,
@@ -274,7 +332,8 @@ def get_trend_data():
         },
         "charts": {
             "waterfall": json.loads(fig_wf.to_json()),
-            "line": json.loads(fig_line.to_json())
+            "line": json.loads(fig_line.to_json()),
+            "total_monthly": json.loads(fig_total.to_json())
         }
     }
 
