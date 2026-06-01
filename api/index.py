@@ -11,6 +11,7 @@ import json
 import time
 import os
 import hashlib
+import secrets
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,8 +27,14 @@ app.add_middleware(
 )
 
 # --- Security & Password Configurations ---
-DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "1115")
-SECRET_KEY = os.environ.get("SECRET_KEY", "ez-insight-secret-key-1115")
+# 배포 및 실행 시 환경 변수(DASHBOARD_PASSWORD)가 지정되지 않은 경우 임의의 무작위 값으로 지정하여 접근을 완전히 차단합니다.
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD")
+if not DASHBOARD_PASSWORD:
+    DASHBOARD_PASSWORD = secrets.token_hex(32)
+
+SECRET_KEY = os.environ.get("SECRET_KEY", "ez-insight-secret-key-temp")
+if SECRET_KEY == "ez-insight-secret-key-1115" or not os.environ.get("SECRET_KEY"):
+    SECRET_KEY = secrets.token_hex(32)
 
 class LoginRequest(BaseModel):
     password: str

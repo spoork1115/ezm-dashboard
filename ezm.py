@@ -36,13 +36,24 @@ def check_password():
     
     def password_entered():
         """입력한 비밀번호가 st.secrets 또는 기본값과 일치하는지 검사합니다."""
-        correct_password = "1115"
+        correct_password = None
+        
+        # 1. Streamlit Secrets 검사
         try:
-            # st.secrets에 안전하게 접근하여 비밀번호가 정의되어 있는지 확인
             if st.secrets and "DASHBOARD_PASSWORD" in st.secrets:
                 correct_password = str(st.secrets["DASHBOARD_PASSWORD"])
         except Exception:
             pass
+            
+        # 2. OS 환경 변수 검사
+        if not correct_password:
+            import os
+            correct_password = os.environ.get("DASHBOARD_PASSWORD")
+            
+        # 3. 둘 다 없는 경우 임의의 값으로 지정하여 인증 완전 차단 (보안 강화)
+        if not correct_password:
+            import secrets
+            correct_password = secrets.token_hex(32)
 
         if st.session_state["password_input"] == correct_password:
             st.session_state["password_correct"] = True
