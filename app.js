@@ -294,8 +294,25 @@ document.addEventListener("DOMContentLoaded", () => {
             const months = Array.from({length: 12}, (_, i) => `${i + 1}월`);
             
             // 데이터를 백만원 단위로 변환 (value / 1e6)
+            const sales24M = trendData.sales_24.map(v => v / 1e6);
             const sales25M = trendData.sales_25.map(v => v / 1e6);
             const sales26M = trendData.sales_26.map(v => v / 1e6);
+            
+            // 24년 (1~12월) - 얇고 연한 보라색 점선 (#DCD6F7)
+            const trace24 = {
+                x: months,
+                y: sales24M,
+                name: '24년 실적',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#DCD6F7', width: 2, dash: 'dash' },
+                hovertemplate: "<b>24년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel: {
+                    bgcolor: 'rgba(30, 30, 30, 0.9)',
+                    bordercolor: '#DCD6F7',
+                    font: { color: '#DCD6F7' }
+                }
+            };
             
             // 25년 (1~12월) - 얇고 차분한 회청색 점선 (#A6B1E1)
             const trace25 = {
@@ -362,7 +379,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             };
             
-            Plotly.newPlot("chart-brand-trend", [trace25, trace26], layout, {responsive: true, displayModeBar: false});
+            Plotly.newPlot("chart-brand-trend", [trace24, trace25, trace26], layout, {responsive: true, displayModeBar: false});
         } catch (error) {
             console.error("Brand trend chart render error:", error);
         }

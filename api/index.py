@@ -558,6 +558,9 @@ def get_brand_trend(brand: str = Query(...)):
         
     row = brand_data.iloc[0]
     
+    # 24년 데이터 (1월~12월)
+    sales_24 = [float(row[f"24.{m:02d}"]) for m in range(1, 13)]
+    
     # 25년 데이터 (1월~12월)
     sales_25 = [float(row[f"25.{m:02d}"]) for m in range(1, 13)]
     
@@ -567,6 +570,7 @@ def get_brand_trend(brand: str = Query(...)):
     return {
         "brand": brand,
         "last_month": int(last_month),
+        "sales_24": sales_24,
         "sales_25": sales_25,
         "sales_26": sales_26
     }
