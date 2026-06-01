@@ -36,8 +36,15 @@ def check_password():
     
     def password_entered():
         """입력한 비밀번호가 st.secrets 또는 기본값과 일치하는지 검사합니다."""
-        correct_password = st.secrets.get("DASHBOARD_PASSWORD", "1115")
-        if st.session_state["password_input"] == str(correct_password):
+        correct_password = "1115"
+        try:
+            # st.secrets에 안전하게 접근하여 비밀번호가 정의되어 있는지 확인
+            if st.secrets and "DASHBOARD_PASSWORD" in st.secrets:
+                correct_password = str(st.secrets["DASHBOARD_PASSWORD"])
+        except Exception:
+            pass
+
+        if st.session_state["password_input"] == correct_password:
             st.session_state["password_correct"] = True
             del st.session_state["password_input"]  # 보안을 위해 세션에서 즉시 삭제
         else:
@@ -581,14 +588,28 @@ try:
             st.markdown("---")
             st.subheader(f"📈 {selected_brand} 월별 매출 비교 추이 (단위: 백만원)")
             
-            # 선택된 브랜드의 연간 데이터 추출 및 백만원 단위 변환 (25년 1~12월, 26년 1~last_month)
+            # 선택된 브랜드의 연간 데이터 추출 및 백만원 단위 변환 (24년 1~12월, 25년 1~12월, 26년 1~last_month)
             brand_row = master[master['브랜드'] == selected_brand].iloc[0]
+            sales_24_list = [float(brand_row[f"24.{m:02d}"]) / 1e6 for m in range(1, 13)]
             sales_25_list = [float(brand_row[f"25.{m:02d}"]) / 1e6 for m in range(1, 13)]
             sales_26_list = [float(brand_row[f"26.{m:02d}"]) / 1e6 for m in range(1, last_month + 1)] if last_month > 0 else []
             
             months = [f"{m}월" for m in range(1, 13)]
             
             fig_brand = go.Figure()
+            # 24년도 전체 트렌드 - 얇고 연한 보라색 점선 (#DCD6F7)
+            fig_brand.add_trace(go.Scatter(
+                x=months, 
+                y=sales_24_list, 
+                name='24년 매출 (전체)', 
+                line=dict(color='#DCD6F7', width=2, dash='dash'),
+                hovertemplate="<b>24년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
+                hoverlabel=dict(
+                    bgcolor='rgba(30, 30, 30, 0.9)',
+                    bordercolor='#DCD6F7',
+                    font=dict(color='#DCD6F7')
+                )
+            ))
             # 25년도 전체 트렌드 - 얇고 차분한 회청색 점선 (#A6B1E1)
             fig_brand.add_trace(go.Scatter(
                 x=months, 
