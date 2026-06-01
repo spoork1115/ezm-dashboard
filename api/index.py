@@ -266,6 +266,10 @@ def get_trend_data():
     sales_total_25 = [float(master[f"25.{m:02d}"].sum()) / 1e6 for m in range(1, 13)]
     sales_total_26 = [float(master[f"26.{m:02d}"].sum()) / 1e6 for m in range(1, last_month + 1)] if last_month > 0 else []
     
+    total_24 = sum(sales_total_24)
+    total_25 = sum(sales_total_25)
+    total_26 = sum(sales_total_26) if sales_total_26 else 0
+    
     months = [f"{m}월" for m in range(1, 13)]
     
     fig_total = go.Figure()
@@ -273,7 +277,7 @@ def get_trend_data():
     fig_total.add_trace(go.Scatter(
         x=months, 
         y=sales_total_24, 
-        name='24년 전체 매출', 
+        name=f"24년 총 {total_24/100:.2f}억원", 
         line=dict(color='rgba(220, 214, 247, 0.8)', width=2, dash='dash'),
         hovertemplate="<b>24년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
         hoverlabel=dict(
@@ -286,7 +290,7 @@ def get_trend_data():
     fig_total.add_trace(go.Scatter(
         x=months, 
         y=sales_total_25, 
-        name='25년 전체 매출', 
+        name=f"25년 총 {total_25/100:.2f}억원", 
         line=dict(color='#A6B1E1', width=2, dash='dot'),
         hovertemplate="<b>25년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
         hoverlabel=dict(
@@ -300,7 +304,7 @@ def get_trend_data():
         fig_total.add_trace(go.Scatter(
             x=months[:last_month], 
             y=sales_total_26, 
-            name='26년 전체 매출 (누적)', 
+            name=f"26년 총 {total_26/100:.2f}억원", 
             mode='lines+markers', 
             line=dict(color='#FF4D4D', width=4),
             marker=dict(size=8),

@@ -37,6 +37,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize App
     async function init() {
+        // 만료 시간 체크 (한 달)
+        const expireTime = localStorage.getItem("easy_bi_expire");
+        if (expireTime && Date.now() > parseInt(expireTime)) {
+            localStorage.removeItem("easy_bi_token");
+            localStorage.removeItem("easy_bi_password");
+            localStorage.removeItem("easy_bi_expire");
+        }
+
         const token = localStorage.getItem("easy_bi_token");
         if (!token) {
             showLoginOverlay();
@@ -91,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function authFetch(url, options = {}) {
-        const token = localStorage.getItem("easy_bi_token");
+        let token = localStorage.getItem("easy_bi_token");
         if (!options.headers) {
             options.headers = {};
         }
@@ -100,9 +108,40 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         options.headers["Content-Type"] = "application/json";
         
-        const response = await fetch(url, options);
+        let response = await fetch(url, options);
         if (response.status === 401) {
+            // 401 Unauthorized 발생 시 로컬에 저장된 비밀번호로 백그라운드 재인증(토큰 갱신) 시도
+            const savedPassword = localStorage.getItem("easy_bi_password");
+            const expireTime = localStorage.getItem("easy_bi_expire");
+            
+            if (savedPassword && expireTime && Date.now() <= parseInt(expireTime)) {
+                try {
+                    const loginRes = await fetch(`${API_BASE}/api/login`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ password: savedPassword })
+                    });
+                    
+                    if (loginRes.ok) {
+                        const loginData = await loginRes.json();
+                        localStorage.setItem("easy_bi_token", loginData.token);
+                        
+                        // 새로 발급받은 토큰으로 재시도
+                        options.headers["Authorization"] = `Bearer ${loginData.token}`;
+                        response = await fetch(url, options);
+                        if (response.ok) {
+                            return response;
+                        }
+                    }
+                } catch (retryErr) {
+                    console.error("Auto login token renewal failed:", retryErr);
+                }
+            }
+            
+            // 재인증 실패 또는 저장된 암호가 없는 경우 초기화 후 로그인 화면 유도
             localStorage.removeItem("easy_bi_token");
+            localStorage.removeItem("easy_bi_password");
+            localStorage.removeItem("easy_bi_expire");
             dataCache = { trend: null, portfolio: null, monthly: {} };
             showLoginOverlay();
             throw new Error("Unauthorized");
@@ -266,8 +305,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (thSales26) thSales26.querySelector(".th-text").textContent = `26년 ${month}월`;
         if (thSales25) thSales25.querySelector(".th-text").textContent = `25년 ${month}월`;
 
-        // 정렬
+        // 검색 필터링 및 정렬
         let sortedBrands = [...data.tables.all_brands];
+        const brandSearchInput = document.getElementById("brand-search-input");
+        const query = brandSearchInput ? brandSearchInput.value.trim().toLowerCase() : "";
+        if (query) {
+            sortedBrands = sortedBrands.filter(b => b.브랜드.toLowerCase().includes(query));
+        }
+
         const key = monthlySortKey;
         const order = monthlySortOrder;
 
@@ -520,7 +565,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const data = await response.json();
+            // 한 달 만료 시간 설정 및 비밀번호 저장
+            const expireTime = Date.now() + 30 * 24 * 60 * 60 * 1000;
             localStorage.setItem("easy_bi_token", data.token);
+            localStorage.setItem("easy_bi_password", password);
+            localStorage.setItem("easy_bi_expire", expireTime.toString());
+            
             loginPasswordInput.value = "";
             
             await init();
@@ -538,6 +588,16 @@ document.addEventListener("DOMContentLoaded", () => {
     loginPasswordInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter") handleLogin();
     });
+
+    // 브랜드명 검색창 실시간 필터링 이벤트 바인딩
+    const brandSearchInput = document.getElementById("brand-search-input");
+    if (brandSearchInput) {
+        brandSearchInput.addEventListener("input", () => {
+            if (currentMode === "monthly") {
+                renderMonthlyView();
+            }
+        });
+    }
 
     // 테이블 헤더 클릭 이벤트 리스너 등록
     const tableHeaderThs = document.querySelectorAll("#table-all-brands thead th");

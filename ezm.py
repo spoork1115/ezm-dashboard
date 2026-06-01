@@ -34,6 +34,12 @@ BRAND_CATEGORY_MAP = {
 def check_password():
     """사용자가 올바른 비밀번호를 입력했는지 확인하고 로그인 화면을 렌더링합니다."""
     
+    # 쿠키 검사 (30일 유효 로그인 검증)
+    cookies = st.context.cookies
+    if cookies.get("dashboard_authenticated") == "true":
+        st.session_state["password_correct"] = True
+        return True
+    
     def password_entered():
         """입력한 비밀번호가 st.secrets 또는 기본값과 일치하는지 검사합니다."""
         correct_password = None
@@ -61,8 +67,18 @@ def check_password():
         else:
             st.session_state["password_correct"] = False
 
-    # 이미 로그인 성공한 경우 True 반환
+    # 이미 로그인 성공한 경우 쿠키 생성 JS를 주입하고 True 반환
     if st.session_state.get("password_correct", False):
+        if cookies.get("dashboard_authenticated") != "true":
+            import streamlit.components.v1 as components
+            cookie_js = """
+            <script>
+            var date = new Date();
+            date.setTime(date.getTime() + (30*24*60*60*1000)); // 30일
+            window.parent.document.cookie = "dashboard_authenticated=true; expires=" + date.toUTCString() + "; path=/";
+            </script>
+            """
+            components.html(cookie_js, height=0)
         return True
 
     # 로그인 화면 디자인 (CSS 주입)
@@ -327,6 +343,10 @@ try:
             sales_total_25 = [float(master[f"25.{m:02d}"].sum()) / 1e6 for m in range(1, 13)]
             sales_total_26 = [float(master[f"26.{m:02d}"].sum()) / 1e6 for m in range(1, last_month + 1)] if last_month > 0 else []
             
+            total_24 = sum(sales_total_24)
+            total_25 = sum(sales_total_25)
+            total_26 = sum(sales_total_26) if sales_total_26 else 0
+            
             months = [f"{m}월" for m in range(1, 13)]
             
             fig_total = go.Figure()
@@ -334,7 +354,7 @@ try:
             fig_total.add_trace(go.Scatter(
                 x=months, 
                 y=sales_total_24, 
-                name='24년 전체 매출', 
+                name=f"24년 총 {total_24/100:.2f}억원", 
                 line=dict(color='#DCD6F7', width=2, dash='dash'),
                 hovertemplate="<b>24년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
                 hoverlabel=dict(
@@ -347,7 +367,7 @@ try:
             fig_total.add_trace(go.Scatter(
                 x=months, 
                 y=sales_total_25, 
-                name='25년 전체 매출', 
+                name=f"25년 총 {total_25/100:.2f}억원", 
                 line=dict(color='#A6B1E1', width=2, dash='dot'),
                 hovertemplate="<b>25년 %{x}</b><br>매출액: %{y:,.1f}백만원<extra></extra>",
                 hoverlabel=dict(
@@ -361,7 +381,7 @@ try:
                 fig_total.add_trace(go.Scatter(
                     x=months[:last_month], 
                     y=sales_total_26, 
-                    name='26년 전체 매출 (누적)', 
+                    name=f"26년 총 {total_26/100:.2f}억원", 
                     mode='lines+markers', 
                     line=dict(color='#FF4D4D', width=4),
                     marker=dict(size=8),
@@ -372,7 +392,7 @@ try:
                         font=dict(color='#FF4D4D')
                     )
                 ))
-                
+
             fig_total.update_layout(
                 xaxis_title="월",
                 yaxis_title="매출액 (백만원)",
@@ -725,11 +745,18 @@ try:
         st.subheader(f"📊 {tgt_m}월 전체 브랜드 실적 현황")
         st.caption("아래 표에서 브랜드를 클릭하시면 상단의 매출 추이 그래프가 해당 브랜드로 변경됩니다.")
 
+        # 브랜드 검색 기능 추가
+        search_query = st.text_input("🔍 브랜드 검색 (일부 글자 입력 시 실시간 필터링)", "", key="brand_search_streamlit")
+
         # 동적 헤더 이름 설정: 26년 X월, 25년 X월
         col_26_name = f"26년 {tgt_m}월"
         col_25_name = f"25년 {tgt_m}월"
 
         m_data_display = m_data_sorted.copy()
+        
+        if search_query:
+            m_data_display = m_data_display[m_data_display['브랜드'].str.contains(search_query, case=False, na=False)]
+            
         m_data_display = m_data_display.rename(columns={
             m26_col: col_26_name,
             m25_col: col_25_name

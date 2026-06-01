@@ -285,10 +285,14 @@
                 <!-- Tables Grid (전체 브랜드 테이블) -->
                 <div class="tables-grid" style="grid-template-columns: 1fr;">
                     <div class="table-container card">
-                        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="fa-solid fa-list-check" style="color: var(--primary);"></i>
                                 <h3>📊 전체 브랜드 매출 및 증감 실적</h3>
+                            </div>
+                            <div class="search-box-container" style="display: flex; align-items: center; gap: 0.5rem; position: relative;">
+                                <i class="fa-solid fa-magnifying-glass search-icon" style="position: absolute; left: 12px; color: var(--text-secondary);"></i>
+                                <input type="text" id="brand-search-input" placeholder="🔍 브랜드명 검색..." style="padding: 8px 12px 8px 32px; border-radius: 8px; border: 1px solid rgba(166, 177, 225, 0.2); background-color: rgba(26, 26, 46, 0.5); color: #E5E7EB; width: 220px; outline: none; font-size: 0.85rem; transition: all 0.3s;">
                             </div>
                             <span style="font-size: 0.8rem; color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i> 브랜드를 선택하면 상세 그래프를 확인할 수 있습니다.</span>
                         </div>
