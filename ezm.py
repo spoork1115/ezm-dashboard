@@ -92,6 +92,19 @@ def check_password():
         section.main > div {
             padding-top: 2rem;
         }
+        div[data-testid="stAppViewContainer"] {
+            background: #0b0f17;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: #ffffff !important;
+            border: 1px solid rgba(166, 177, 225, 0.25) !important;
+            border-radius: 18px !important;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.28) !important;
+            padding: 34px 38px 36px 38px !important;
+        }
+        .login-card {
+            text-align: center;
+        }
         .login-logo {
             font-size: 40px;
             color: #424874;
@@ -118,17 +131,8 @@ def check_password():
             line-height: 1.6;
             margin-bottom: 25px;
         }
-        /* Streamlit 폼을 로그인 카드로 사용 */
-        div[data-testid="stForm"] {
-            max-width: 460px !important;
-            margin: 70px auto 0 auto !important;
-            padding: 36px 42px 38px 42px !important;
-            background: #ffffff !important;
-            border-radius: 18px !important;
-            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14) !important;
-            border: 1px solid rgba(166, 177, 225, 0.25) !important;
-        }
-        div[data-testid="stForm"] label {
+        div[data-testid="stTextInput"] label,
+        div[data-testid="stTextInput"] label p {
             color: #1f2937 !important;
             font-weight: 700 !important;
             margin-bottom: 8px !important;
@@ -146,7 +150,7 @@ def check_password():
             border-color: #424874 !important;
             box-shadow: 0 0 0 3px rgba(66, 72, 116, 0.12) !important;
         }
-        div[data-testid="stForm"] button {
+        div[data-testid="stButton"] button {
             background-color: #424874 !important;
             color: #ffffff !important;
             border: none !important;
@@ -157,7 +161,7 @@ def check_password():
             transition: all 0.3s ease !important;
             box-shadow: 0 4px 10px rgba(66, 72, 116, 0.2) !important;
         }
-        div[data-testid="stForm"] button:hover {
+        div[data-testid="stButton"] button:hover {
             background-color: #353a5e !important;
             transform: translateY(-1px) !important;
             box-shadow: 0 6px 15px rgba(66, 72, 116, 0.3) !important;
@@ -167,28 +171,30 @@ def check_password():
         unsafe_allow_html=True
     )
 
-    with st.form("login_form", clear_on_submit=True):
-        st.markdown(
-            """
-            <div class="login-card">
-                <div class="login-logo">🔒</div>
-                <div class="login-title">EZ-Insight 대시보드</div>
-                <div class="login-subtitle">Secure Insight Portal</div>
-                <p>본 시스템은 관계자 외 접근이 제한되어 있습니다.<br>보안 비밀번호를 입력해 주십시오.</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        st.text_input("비밀번호 입력", type="password", key="password_input", placeholder="비밀번호를 입력하세요")
-        submit = st.form_submit_button("인증 및 접속")
-        if submit:
-            password_entered()
-            if st.session_state.get("password_correct", False):
-                st.rerun()
-            elif st.session_state.get("password_config_error", False):
-                st.error("DASHBOARD_PASSWORD가 설정되어 있지 않습니다. Streamlit Secrets 또는 서버 환경변수를 확인해 주세요.")
-            else:
-                st.error("비밀번호가 올바르지 않습니다.")
+    _, login_col, _ = st.columns([1, 1.15, 1])
+    with login_col:
+        with st.container(border=True):
+            st.markdown(
+                """
+                <div class="login-card">
+                    <div class="login-logo">🔒</div>
+                    <div class="login-title">EZ-Insight 대시보드</div>
+                    <div class="login-subtitle">Secure Insight Portal</div>
+                    <p>본 시스템은 관계자 외 접근이 제한되어 있습니다.<br>보안 비밀번호를 입력해 주십시오.</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            st.text_input("비밀번호 입력", type="password", key="password_input", placeholder="비밀번호를 입력하세요")
+            submit = st.button("인증 및 접속", type="primary", use_container_width=True)
+            if submit:
+                password_entered()
+                if st.session_state.get("password_correct", False):
+                    st.rerun()
+                elif st.session_state.get("password_config_error", False):
+                    st.error("DASHBOARD_PASSWORD가 설정되어 있지 않습니다. Streamlit Secrets 또는 서버 환경변수를 확인해 주세요.")
+                else:
+                    st.error("비밀번호가 올바르지 않습니다.")
     return False
 
 # 비밀번호 검증 미통과 시 대시보드 렌더링 및 데이터 로딩 차단
