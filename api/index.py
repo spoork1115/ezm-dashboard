@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, Query, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ import json
 import time
 import os
 import hashlib
-import secrets
+import hmac
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -27,24 +27,23 @@ app.add_middleware(
 )
 
 # --- Security & Password Configurations ---
-# 배포 및 실행 시 환경 변수(DASHBOARD_PASSWORD)가 지정되지 않은 경우 임의의 무작위 값으로 지정하여 접근을 완전히 차단합니다.
-DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD")
-if not DASHBOARD_PASSWORD:
-    DASHBOARD_PASSWORD = secrets.token_hex(32)
-
-SECRET_KEY = os.environ.get("SECRET_KEY", "ez-insight-secret-key-temp")
-if SECRET_KEY == "ez-insight-secret-key-1115" or not os.environ.get("SECRET_KEY"):
-    SECRET_KEY = secrets.token_hex(32)
+# DASHBOARD_PASSWORD is required in deployment. SECRET_KEY is recommended; when it
+# is missing we fall back to the password so serverless cold starts keep tokens valid.
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
+PASSWORD_CONFIGURED = bool(DASHBOARD_PASSWORD)
+SECRET_KEY = os.environ.get("SECRET_KEY") or DASHBOARD_PASSWORD
 
 class LoginRequest(BaseModel):
     password: str
 
 def verify_token(authorization: str = Header(None)):
+    if not PASSWORD_CONFIGURED:
+        raise HTTPException(status_code=503, detail="DASHBOARD_PASSWORD is not configured")
     expected_token = hashlib.sha256(f"{DASHBOARD_PASSWORD}:{SECRET_KEY}".encode()).hexdigest()
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized")
     token = authorization.split(" ")[1]
-    if token != expected_token:
+    if not hmac.compare_digest(token, expected_token):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 # --- Brand Categories Configuration ---
@@ -198,11 +197,22 @@ def apply_dark_theme(fig):
 @app.post("/api/login")
 @app.post("/login")
 def login(req: LoginRequest):
-    if req.password == DASHBOARD_PASSWORD:
+    if not PASSWORD_CONFIGURED:
+        raise HTTPException(status_code=503, detail="DASHBOARD_PASSWORD is not configured")
+    if hmac.compare_digest(req.password, DASHBOARD_PASSWORD):
         token = hashlib.sha256(f"{DASHBOARD_PASSWORD}:{SECRET_KEY}".encode()).hexdigest()
         return {"token": token}
     else:
         raise HTTPException(status_code=400, detail="Invalid password")
+
+@app.get("/api/health")
+@app.get("/health")
+def health():
+    return {
+        "ok": True,
+        "password_configured": PASSWORD_CONFIGURED,
+        "secret_configured": bool(os.environ.get("SECRET_KEY")),
+    }
 
 @app.get("/api/meta", dependencies=[Depends(verify_token)])
 @app.get("/meta", dependencies=[Depends(verify_token)])

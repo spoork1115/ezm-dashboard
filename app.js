@@ -40,9 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // 만료 시간 체크 (한 달)
         const expireTime = localStorage.getItem("easy_bi_expire");
         if (expireTime && Date.now() > parseInt(expireTime)) {
-            localStorage.removeItem("easy_bi_token");
-            localStorage.removeItem("easy_bi_password");
-            localStorage.removeItem("easy_bi_expire");
+            clearAuth();
         }
 
         const token = localStorage.getItem("easy_bi_token");
@@ -98,6 +96,27 @@ document.addEventListener("DOMContentLoaded", () => {
         loginOverlay.classList.add("hidden");
     }
 
+    function clearAuth() {
+        localStorage.removeItem("easy_bi_token");
+        localStorage.removeItem("easy_bi_password");
+        localStorage.removeItem("easy_bi_expire");
+    }
+
+    async function readErrorMessage(response) {
+        try {
+            const data = await response.json();
+            return data.detail || "로그인 처리 중 오류가 발생했습니다.";
+        } catch (error) {
+            return "로그인 처리 중 오류가 발생했습니다.";
+        }
+    }
+
+    function showLoginError(message = "비밀번호가 올바르지 않습니다.") {
+        const messageEl = loginErrorMsg.querySelector("span");
+        if (messageEl) messageEl.textContent = message;
+        loginErrorMsg.style.display = "flex";
+    }
+
     async function authFetch(url, options = {}) {
         let token = localStorage.getItem("easy_bi_token");
         if (!options.headers) {
@@ -110,38 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         let response = await fetch(url, options);
         if (response.status === 401) {
-            // 401 Unauthorized 발생 시 로컬에 저장된 비밀번호로 백그라운드 재인증(토큰 갱신) 시도
-            const savedPassword = localStorage.getItem("easy_bi_password");
-            const expireTime = localStorage.getItem("easy_bi_expire");
-            
-            if (savedPassword && expireTime && Date.now() <= parseInt(expireTime)) {
-                try {
-                    const loginRes = await fetch(`${API_BASE}/api/login`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ password: savedPassword })
-                    });
-                    
-                    if (loginRes.ok) {
-                        const loginData = await loginRes.json();
-                        localStorage.setItem("easy_bi_token", loginData.token);
-                        
-                        // 새로 발급받은 토큰으로 재시도
-                        options.headers["Authorization"] = `Bearer ${loginData.token}`;
-                        response = await fetch(url, options);
-                        if (response.ok) {
-                            return response;
-                        }
-                    }
-                } catch (retryErr) {
-                    console.error("Auto login token renewal failed:", retryErr);
-                }
-            }
-            
-            // 재인증 실패 또는 저장된 암호가 없는 경우 초기화 후 로그인 화면 유도
-            localStorage.removeItem("easy_bi_token");
-            localStorage.removeItem("easy_bi_password");
-            localStorage.removeItem("easy_bi_expire");
+            clearAuth();
             dataCache = { trend: null, portfolio: null, monthly: {} };
             showLoginOverlay();
             throw new Error("Unauthorized");
@@ -547,7 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Login Submit Handler
     async function handleLogin() {
-        const password = loginPasswordInput.value.trim();
+        const password = loginPasswordInput.value;
         if (!password) return;
 
         loginErrorMsg.style.display = "none";
@@ -561,21 +549,21 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (!response.ok) {
-                throw new Error("Invalid password");
+                throw new Error(await readErrorMessage(response));
             }
 
             const data = await response.json();
-            // 한 달 만료 시간 설정 및 비밀번호 저장
+            // 한 달 만료 시간 설정
             const expireTime = Date.now() + 30 * 24 * 60 * 60 * 1000;
             localStorage.setItem("easy_bi_token", data.token);
-            localStorage.setItem("easy_bi_password", password);
+            localStorage.removeItem("easy_bi_password");
             localStorage.setItem("easy_bi_expire", expireTime.toString());
             
             loginPasswordInput.value = "";
             
             await init();
         } catch (err) {
-            loginErrorMsg.style.display = "flex";
+            showLoginError(err.message);
             const card = document.querySelector(".login-card");
             card.style.animation = "none";
             setTimeout(() => {
