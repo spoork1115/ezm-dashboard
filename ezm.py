@@ -56,10 +56,13 @@ def check_password():
             import os
             correct_password = os.environ.get("DASHBOARD_PASSWORD")
             
-        # 3. 둘 다 없는 경우 임의의 값으로 지정하여 인증 완전 차단 (보안 강화)
+        # 3. 둘 다 없는 경우 인증 차단 및 설정 누락 안내
         if not correct_password:
-            import secrets
-            correct_password = secrets.token_hex(32)
+            st.session_state["password_correct"] = False
+            st.session_state["password_config_error"] = True
+            return
+
+        st.session_state.pop("password_config_error", None)
 
         if st.session_state["password_input"] == correct_password:
             st.session_state["password_correct"] = True
@@ -85,16 +88,9 @@ def check_password():
     st.markdown(
         """
         <style>
-        /* 톤앤매너에 맞춘 비밀번호 로그인 카드 디자인 */
-        .login-card {
-            max-width: 400px;
-            margin: 80px auto 0 auto;
-            padding: 35px 25px;
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(66, 72, 116, 0.08);
-            border: 1px solid rgba(166, 177, 225, 0.2);
-            text-align: center;
+        /* 로그인 화면 정렬 */
+        section.main > div {
+            padding-top: 2rem;
         }
         .login-logo {
             font-size: 40px;
@@ -122,13 +118,33 @@ def check_password():
             line-height: 1.6;
             margin-bottom: 25px;
         }
-        /* 스트림릿 기본 폼 스타일 오버라이딩 */
+        /* Streamlit 폼을 로그인 카드로 사용 */
         div[data-testid="stForm"] {
-            border: none !important;
-            padding: 0 !important;
-            background: transparent !important;
-            max-width: 320px !important;
-            margin: 0 auto !important;
+            max-width: 460px !important;
+            margin: 70px auto 0 auto !important;
+            padding: 36px 42px 38px 42px !important;
+            background: #ffffff !important;
+            border-radius: 18px !important;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14) !important;
+            border: 1px solid rgba(166, 177, 225, 0.25) !important;
+        }
+        div[data-testid="stForm"] label {
+            color: #1f2937 !important;
+            font-weight: 700 !important;
+            margin-bottom: 8px !important;
+        }
+        div[data-testid="stTextInput"] input {
+            height: 48px !important;
+            background: #f7f8ff !important;
+            color: #111827 !important;
+            border: 1px solid rgba(66, 72, 116, 0.22) !important;
+            border-radius: 10px !important;
+            box-shadow: none !important;
+            font-size: 16px !important;
+        }
+        div[data-testid="stTextInput"] input:focus {
+            border-color: #424874 !important;
+            box-shadow: 0 0 0 3px rgba(66, 72, 116, 0.12) !important;
         }
         div[data-testid="stForm"] button {
             background-color: #424874 !important;
@@ -147,29 +163,33 @@ def check_password():
             box-shadow: 0 6px 15px rgba(66, 72, 116, 0.3) !important;
         }
         </style>
-        <div class="login-card">
-            <div class="login-logo">🔒</div>
-            <div class="login-title">EZ-Insight 대시보드</div>
-            <div class="login-subtitle">Secure Insight Portal</div>
-            <p>본 시스템은 관계자 외 접근이 제한되어 있습니다.<br>보안 비밀번호를 입력해 주십시오.</p>
-        </div>
         """,
         unsafe_allow_html=True
     )
 
-    # 중앙 정렬용 컬럼 구성
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        with st.form("login_form", clear_on_submit=True):
-            st.text_input("비밀번호 입력", type="password", key="password_input", placeholder="••••")
-            submit = st.form_submit_button("인증 및 접속")
-            if submit:
-                password_entered()
-                if st.session_state.get("password_correct", False):
-                    st.rerun()
-                else:
-                    st.error("비밀번호가 올바르지 않습니다.")
-        return False
+    with st.form("login_form", clear_on_submit=True):
+        st.markdown(
+            """
+            <div class="login-card">
+                <div class="login-logo">🔒</div>
+                <div class="login-title">EZ-Insight 대시보드</div>
+                <div class="login-subtitle">Secure Insight Portal</div>
+                <p>본 시스템은 관계자 외 접근이 제한되어 있습니다.<br>보안 비밀번호를 입력해 주십시오.</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.text_input("비밀번호 입력", type="password", key="password_input", placeholder="비밀번호를 입력하세요")
+        submit = st.form_submit_button("인증 및 접속")
+        if submit:
+            password_entered()
+            if st.session_state.get("password_correct", False):
+                st.rerun()
+            elif st.session_state.get("password_config_error", False):
+                st.error("DASHBOARD_PASSWORD가 설정되어 있지 않습니다. Streamlit Secrets 또는 서버 환경변수를 확인해 주세요.")
+            else:
+                st.error("비밀번호가 올바르지 않습니다.")
+    return False
 
 # 비밀번호 검증 미통과 시 대시보드 렌더링 및 데이터 로딩 차단
 if not check_password():
